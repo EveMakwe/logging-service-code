@@ -51,7 +51,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.ROLE_NAME_GITHUB }}
-          aws-region: eu-west-1
+          aws-region: us-east-1
 
       - name: Install Lambda dependencies
         run: |
