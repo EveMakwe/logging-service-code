@@ -6,13 +6,13 @@ def test_lambda_handler_no_logs(monkeypatch):
         def query(self, **kwargs):
             return {"Items": []}
 
-    monkeypatch.setattr(retrieve_logs, "table", MockTable())
+    monkeypatch.setattr(ingest_logs, "table", MockTable())
 
     event = {
         "queryStringParameters": {}
     }
 
-    response = retrieve_logs.lambda_handler(event, None)
+    response = ingest_logs.lambda_handler(event, None)
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
     assert body["items"] == []
