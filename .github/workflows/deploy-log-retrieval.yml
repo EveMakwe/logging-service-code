@@ -28,3 +28,6 @@ jobs:
             --function-name logRetrievalFunction \
             --zip-file fileb://get_log/function.zip \
             --publish
+
+
+            
