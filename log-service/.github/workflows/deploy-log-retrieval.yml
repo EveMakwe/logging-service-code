@@ -3,7 +3,7 @@ name: Deploy Log Retrieval Lambda
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [workflows]
     paths: [ 'get_log/**' ]
 permissions:
   id-token: write

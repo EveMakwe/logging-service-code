@@ -3,7 +3,7 @@ name: Deploy Log Ingestion Lambda
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [workflows]
     paths: [ 'write_log/**' ]
 permissions:
   id-token: write

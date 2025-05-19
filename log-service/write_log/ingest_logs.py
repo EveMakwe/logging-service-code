@@ -1,23 +1,75 @@
-import json
-import ingest_logs
+iimport json
+import boto3
+import logging
+import uuid
+from datetime import datetime
+import os
 
-def test_lambda_handler_valid_input(monkeypatch):
-    # Mock DynamoDB put_item
-    class MockTable:
-        def put_item(self, Item):
-            return {}
+# Set up logging for the function
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
-    monkeypatch.setattr(ingest_logs, "table", MockTable())
+# Get the DynamoDB table name from environment variables
+TABLE_NAME = os.environ.get('TABLE_NAME')
 
-    event = {
-        "body": json.dumps({
-            "severity": "info",
-            "message": "Test log"
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table(TABLE_NAME)
+
+def lambda_handler(event, context):
+    try:
+        # Check if the request has a body
+        if not event.get('body'):
+            logger.error("Request body is missing")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Request body is required'})
+            }
+
+       
+        body = event['body']
+        if isinstance(body, str):
+            body = json.loads(body)
+        elif not isinstance(body, dict):
+            logger.error("Invalid body format: %s", type(body))
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Body must be a valid JSON object'})
+            }
+
+        # Generate or get log ID, timestamp, severity, and message
+        log_id = body.get('id', str(uuid.uuid4()))  
+        timestamp = datetime.utcnow().isoformat()
+        severity = body.get('severity', 'info').lower()
+        message = body.get('message', '')
+
+        # Saves the log entry to DynamoDB
+        table.put_item(Item={
+            'id': log_id,
+            'datetime': timestamp,
+            'severity': severity,
+            'message': message,
+            'partition': 'ALL'  # used for querying all logs in a shared partition
         })
-    }
 
-    response = ingest_logs.lambda_handler(event, None)
-    assert response["statusCode"] == 201
-    body = json.loads(response["body"])
-    assert "id" in body
-    assert "datetime" in body
+       
+        return {
+            'statusCode': 201,
+            'body': json.dumps({'id': log_id, 'datetime': timestamp})
+        }
+
+    
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON in request body")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Invalid JSON format'})
+        }
+
+    # Catch unexpected errors
+    except Exception as e:
+        logger.exception("Unhandled exception")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': f'Server error: {str(e)}'})
+        }
