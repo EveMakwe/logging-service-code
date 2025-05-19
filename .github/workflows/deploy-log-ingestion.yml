@@ -31,7 +31,8 @@ jobs:
         run: bandit -r write_log/ --exclude write_log/tests/
 
       - name: Run unit tests
-        run: pytest write_log/
+        run: PYTHONPATH=. pytest write_log/
+
 
     
   deploy:
