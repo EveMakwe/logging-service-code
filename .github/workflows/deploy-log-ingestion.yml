@@ -68,7 +68,7 @@ jobs:
       - name: Deploy Lambda function
         run: |
           aws lambda update-function-code \
-            --function-name dev-ingest-logs \
+            --function-name dev-logging-service-ingest-logs \
             --zip-file fileb://ingest_logs.zip
 
       - name: Slack Success Notification
