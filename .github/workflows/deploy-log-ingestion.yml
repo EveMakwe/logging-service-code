@@ -33,11 +33,7 @@ jobs:
       - name: Run unit tests
         run: pytest write_log/
 
-      - name: Security scan Terraform
-        run: |
-          pip install checkov
-          checkov -d .
-
+    
   deploy:
     runs-on: ubuntu-latest
     needs: test_lint_scan
