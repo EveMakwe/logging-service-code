@@ -9,14 +9,13 @@ import os
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Get the DynamoDB table name from environment variables
-TABLE_NAME = os.environ.get("TABLE_NAME")
-
-dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table(TABLE_NAME)
-
 
 def lambda_handler(event, context):
+    # All boto3 resource init INSIDE the handler
+    table_name = os.environ.get("TABLE_NAME")
+    dynamodb = boto3.resource("dynamodb")
+    table = dynamodb.Table(table_name)
+
     try:
         # Check if the request has a body
         if not event.get("body"):
@@ -82,3 +81,4 @@ def lambda_handler(event, context):
                 "error": f"Server error: {str(e)}"
             }),
         }
+
