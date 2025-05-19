@@ -23,9 +23,7 @@ def lambda_handler(event, context):
             logger.error("Request body is missing")
             return {
                 "statusCode": 400,
-                "body": json.dumps(
-                    {"error": "Request body is required"}
-                ),
+                "body": json.dumps({"error": "Request body is required"}),
             }
 
         body = event["body"]
@@ -35,9 +33,7 @@ def lambda_handler(event, context):
             logger.error("Invalid body format: %s", type(body))
             return {
                 "statusCode": 400,
-                "body": json.dumps(
-                    {"error": "Body must be a valid JSON object"}
-                ),
+                "body": json.dumps({"error": "Body must be a valid JSON object"}),
             }
 
         # Generate or get log ID, timestamp, severity, and message
@@ -59,25 +55,19 @@ def lambda_handler(event, context):
 
         return {
             "statusCode": 201,
-            "body": json.dumps(
-                {"id": log_id, "datetime": timestamp}
-            ),
+            "body": json.dumps({"id": log_id, "datetime": timestamp}),
         }
 
     except json.JSONDecodeError:
         logger.error("Invalid JSON in request body")
         return {
             "statusCode": 400,
-            "body": json.dumps(
-                {"error": "Invalid JSON format"}
-            ),
+            "body": json.dumps({"error": "Invalid JSON format"}),
         }
 
     except Exception as e:
         logger.exception("Unhandled exception")
         return {
             "statusCode": 500,
-            "body": json.dumps(
-                {"error": f"Server error: {str(e)}"}
-            ),
+            "body": json.dumps({"error": f"Server error: {str(e)}"}),
         }
