@@ -53,7 +53,7 @@ def lambda_handler(event, context):
                 "datetime": timestamp,
                 "severity": severity,
                 "message": message,
-                "partition": "ALL",  # used for querying all logs in a shared partition
+                "partition": "ALL",
             }
         )
 
@@ -73,7 +73,6 @@ def lambda_handler(event, context):
             ),
         }
 
-    # Catch unexpected errors
     except Exception as e:
         logger.exception("Unhandled exception")
         return {
