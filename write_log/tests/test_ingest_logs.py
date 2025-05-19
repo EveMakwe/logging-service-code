@@ -1,5 +1,6 @@
-import ingest_logs 
+import ingest_logs
 import json
+
 
 def test_lambda_handler_no_logs(monkeypatch):
     class MockTable:
@@ -8,9 +9,7 @@ def test_lambda_handler_no_logs(monkeypatch):
 
     monkeypatch.setattr(ingest_logs, "table", MockTable())
 
-    event = {
-        "queryStringParameters": {}
-    }
+    event = {"queryStringParameters": {}}
 
     response = ingest_logs.lambda_handler(event, None)
     assert response["statusCode"] == 200
