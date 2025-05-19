@@ -81,4 +81,3 @@ def lambda_handler(event, context):
                 "error": f"Server error: {str(e)}"
             }),
         }
-
