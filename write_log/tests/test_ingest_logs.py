@@ -1,4 +1,4 @@
-import retrieve_logs 
+import ingest_logs 
 import json
 
 def test_lambda_handler_no_logs(monkeypatch):
