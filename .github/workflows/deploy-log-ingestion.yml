@@ -2,7 +2,7 @@ name: Deploy ingest_logs Lambda (dev)
 
 on:
   push:
-    branches: [workflow]
+    branches: [workflows]
   #   types: [closed]
   # workflow_dispatch:
 
