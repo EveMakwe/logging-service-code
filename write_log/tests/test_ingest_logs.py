@@ -1,4 +1,4 @@
-import ingest_logs
+from write_log import ingest_logs
 import json
 
 
