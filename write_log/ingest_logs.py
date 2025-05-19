@@ -2,7 +2,7 @@ import json
 import boto3
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 
 # Set up logging for the function
@@ -41,7 +41,7 @@ def lambda_handler(event, context):
 
         # Generate or get log ID, timestamp, severity, and message
         log_id = body.get("id", str(uuid.uuid4()))
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         severity = body.get("severity", "info").lower()
         message = body.get("message", "")
 
