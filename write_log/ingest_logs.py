@@ -1,4 +1,4 @@
-iimport json
+import json
 import boto3
 import logging
 import uuid
