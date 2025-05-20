@@ -70,13 +70,16 @@ jobs:
           aws lambda update-function-code \
             --function-name dev-logging-service-ingest-logs \
             --zip-file fileb://ingest_logs.zip
+
       - name: Slack Success Notification
         if: success()
         uses: slackapi/slack-github-action@v2.1.0
         with:
-          channel-id: ${{ env.CHANNEL_ID }}
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
           payload: |
             {
+              "channel": "${{ env.CHANNEL_ID }}",
               "blocks": [
                 {
                   "type": "header",
@@ -105,16 +108,16 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_WEBHOOK }}
 
       - name: Slack Failure Notification
         if: failure()
         uses: slackapi/slack-github-action@v2.1.0
         with:
-          channel-id: ${{ env.CHANNEL_ID }}
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
           payload: |
             {
+              "channel": "${{ env.CHANNEL_ID }}",
               "blocks": [
                 {
                   "type": "header",
@@ -143,5 +146,3 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_WEBHOOK }}
