@@ -4,9 +4,11 @@ import base64
 import pytest
 from unittest.mock import MagicMock
 import boto3
-import os
 
-# Static imports are now at the top, satisfying E402
+
+# Clear sys.modules to prevent early import of retrieve_logs
+if "get_log.retrieve_logs" in sys.modules:
+    del sys.modules["get_log.retrieve_logs"]
 
 # Mock AWS Lambda Powertools
 sys.modules["aws_lambda_powertools"] = MagicMock()
@@ -21,13 +23,13 @@ boto3.resource = MagicMock()
 
 
 @pytest.fixture(autouse=True)
-def setup_lambda_handler():
-    # Set environment variables before importing retrieve_logs
-    os.environ["TABLE_NAME"] = "test-table"
-    os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
-    os.environ["AWS_REGION"] = "us-east-1"
-    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+def setup_lambda_handler(monkeypatch):
+    # Set environment variables using monkeypatch
+    monkeypatch.setenv("TABLE_NAME", "test-table")
+    monkeypatch.setenv("PROJECTION_FIELDS", "id,severity,#datetime,message")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
 
     # Dynamically import lambda_handler
     from get_log.retrieve_logs import lambda_handler
