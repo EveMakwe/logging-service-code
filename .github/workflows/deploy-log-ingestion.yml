@@ -71,7 +71,11 @@ jobs:
             --function-name dev-logging-service-ingest-logs \
             --zip-file fileb://ingest_logs.zip
 
-      - name: Slack Success Notification
+                    }
+                  ]
+                }
+              ]
+             - name: Slack Success Notification
         if: success()
         uses: slackapi/slack-github-action@v2.1.0
         with:
@@ -81,15 +85,11 @@ jobs:
             {
               "blocks": [
                 {
-                  "type": "section",
-                  "fields": [
+                  "type": "context",
+                  "elements": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Ref:*\n`${{ github.ref }}`"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Event:*\n`${{ github.event_name }}`"
+                      "text": "*${{ github.actor }}*"
                     }
                   ]
                 },
@@ -98,20 +98,35 @@ jobs:
                   "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Actions URL:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|build-and-deploy-pro-strapi-apps>"
+                      "text": "*Ref*\n${{ github.ref }}"
                     },
                     {
                       "type": "mrkdwn",
-                      "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}"
+                      "text": "*Event*\n${{ github.event_name }}"
                     }
                   ]
                 },
                 {
                   "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": ":white_check_mark: *Deployment success for pre-prod-ayoba-developer-portal-strapi-service*"
-                  }
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Actions URL*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|build-and-deploy-dev-logging-service-ingest-logs>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Message*\nDeployment success in for dev-logging-service-ingest-logs"
+                    }
+                  ]
                 }
               ]
             }
@@ -126,15 +141,11 @@ jobs:
             {
               "blocks": [
                 {
-                  "type": "section",
-                  "fields": [
+                  "type": "context",
+                  "elements": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Ref:*\n`${{ github.ref }}`"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Event:*\n`${{ github.event_name }}`"
+                      "text": "*${{ github.actor }}*"
                     }
                   ]
                 },
@@ -143,14 +154,35 @@ jobs:
                   "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Actions URL:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|build-and-deploy-pro-strapi-apps>"
+                      "text": "*Ref*\n${{ github.ref }}"
                     },
                     {
                       "type": "mrkdwn",
-                      "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}"
+                      "text": "*Event*\n${{ github.event_name }}"
                     }
                   ]
                 },
                 {
                   "type": "section",
-                  "text
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Actions URL*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|build-and-deploy-dev-logging-service-ingest-logs>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Message*\n:x: Deployment failed in for dev-logging-service-ingest-logs"
+                    }
+                  ]
+                }
+              ]
+            }
