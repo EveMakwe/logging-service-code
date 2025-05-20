@@ -113,3 +113,4 @@ def test_dynamodb_error(mock_dynamodb, mock_logger):
 
     assert response["statusCode"] == 500
     mock_logger.error.assert_called()
+    
