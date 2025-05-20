@@ -4,9 +4,17 @@ import base64
 import pytest
 from unittest.mock import MagicMock
 import boto3
+import os  # Reordered to top for PEP 8 compliance
 from get_log.retrieve_logs import lambda_handler
 
-# Mock AWS Lambda Powertools before any further imports
+# Set environment variables before mocking or importing retrieve_logs
+os.environ["TABLE_NAME"] = "test-table"
+os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
+os.environ["AWS_REGION"] = "us-east-1"
+os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+
+# Mock AWS Lambda Powertools before importing retrieve_logs
 sys.modules["aws_lambda_powertools"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"].log_metrics = lambda func: func
@@ -17,14 +25,7 @@ sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = lamb
 # Mock boto3
 boto3.resource = MagicMock()
 
-
-@pytest.fixture(autouse=True)
-def setup_env(monkeypatch):
-    monkeypatch.setenv("TABLE_NAME", "test-table")
-    monkeypatch.setenv("PROJECTION_FIELDS", "id,severity,#datetime,message")
-    monkeypatch.setenv("AWS_REGION", "us-east-1")
-    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
-    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+# Import the module under test
 
 
 # Mock Lambda Context
