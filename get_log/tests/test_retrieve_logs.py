@@ -5,7 +5,6 @@ import base64
 import pytest
 from unittest.mock import MagicMock
 
-
 # Patch sys.modules to avoid import errors from aws_lambda_powertools
 sys.modules["aws_lambda_powertools"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
@@ -15,7 +14,7 @@ sys.modules["aws_lambda_powertools.logging"] = MagicMock()
 os.environ["TABLE_NAME"] = "test-table"
 os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
 
-from get_log import retrieve_logs as lambda_module
+from get_log import retrieve_logs as lambda_module  # noqa: E402
 
 
 def make_start_key_token(start_key: dict):
@@ -79,7 +78,10 @@ def test_no_logs_found(monkeypatch, mock_dynamodb):
 def test_query_with_severity(monkeypatch, mock_dynamodb):
     mock_dynamodb.query.return_value = {
         "Items": [{"id": 1, "severity": "info", "message": "test"}],
-        "LastEvaluatedKey": {"severity": "info", "datetime": "2024-01-01T00:00:00Z"},
+        "LastEvaluatedKey": {
+            "severity": "info",
+            "datetime": "2024-01-01T00:00:00Z"
+        },
     }
     event = {"queryStringParameters": {"severity": "info"}}
     response = lambda_module.lambda_handler(event, {})
@@ -91,7 +93,8 @@ def test_query_with_severity(monkeypatch, mock_dynamodb):
 
 def test_dynamodb_client_error(monkeypatch, mock_dynamodb):
     mock_dynamodb.query.side_effect = lambda_module.ClientError(
-        {"Error": {"Message": "fail"}}, "query"
+        {"Error": {"Message": "fail"}},
+        "query"
     )
     event = {"queryStringParameters": None}
     response = lambda_module.lambda_handler(event, {})
@@ -100,7 +103,11 @@ def test_dynamodb_client_error(monkeypatch, mock_dynamodb):
 
 
 def test_unexpected_exception(monkeypatch):
-    monkeypatch.setattr(lambda_module, "execute_query", lambda *args, **kwargs: 1 / 0)
+    monkeypatch.setattr(
+        lambda_module,
+        "execute_query",
+        lambda *args, **kwargs: 1 / 0
+    )
     event = {"queryStringParameters": None}
     response = lambda_module.lambda_handler(event, {})
     assert response["statusCode"] == 500
