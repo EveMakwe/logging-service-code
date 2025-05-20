@@ -24,17 +24,17 @@ jobs:
 
       - name: Install dependencies for lint/test/scan
         run: |
-          pip install -r write_log/requirements.txt
+          pip install -r get_log/requirements.txt
           pip install pytest flake8 bandit
 
       - name: Lint Lambda code
-        run: flake8 write_log/
+        run: flake8 get_log/
 
       - name: Security scan Lambda code
-        run: bandit -r write_log/ --exclude write_log/tests/
+        run: bandit -r get_log/ --exclude get_log/tests/
 
       - name: Run unit tests
-        run: PYTHONPATH=. pytest write_log/
+        run: PYTHONPATH=. pytest get_log/
 
   deploy:
     runs-on: ubuntu-latest
