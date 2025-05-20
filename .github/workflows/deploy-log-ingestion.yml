@@ -75,11 +75,9 @@ jobs:
         if: success()
         uses: slackapi/slack-github-action@v2.1.0
         with:
-          method: chat.postMessage
-          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
           payload: |
             {
-              "channel": "${{ env.CHANNEL_ID }}",
               "blocks": [
                 {
                   "type": "header",
@@ -113,11 +111,9 @@ jobs:
         if: failure()
         uses: slackapi/slack-github-action@v2.1.0
         with:
-          method: chat.postMessage
-          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
           payload: |
             {
-              "channel": "${{ env.CHANNEL_ID }}",
               "blocks": [
                 {
                   "type": "header",
@@ -131,18 +127,4 @@ jobs:
                   "type": "section",
                   "fields": [
                     {
-                      "type": "mrkdwn",
-                      "text": "*Deployed by:*\n${{ github.actor }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Repository:*\n${{ github.repository }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Branch:*\n${{ github.ref_name }}"
-                    }
-                  ]
-                }
-              ]
-            }
+                      "type": "mrkdwn
