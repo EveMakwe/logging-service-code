@@ -64,9 +64,9 @@ jobs:
       - name: Package Lambda function
         run: |
           cd package
-          zip -r ../ingest_logs.zip .
+          zip -r ../retrieve_logs.zip .
           cd ..
-          zip -j ingest_logs.zip get_log/*.py
+          zip -j retrieve_logs.zip get_log/*.py
 
       - name: Deploy Lambda function
         run: |
