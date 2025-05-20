@@ -4,17 +4,11 @@ import base64
 import pytest
 from unittest.mock import MagicMock
 import boto3
-import os  # Reordered to top for PEP 8 compliance
-from get_log.retrieve_logs import lambda_handler
+import os
 
-# Set environment variables before mocking or importing retrieve_logs
-os.environ["TABLE_NAME"] = "test-table"
-os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
-os.environ["AWS_REGION"] = "us-east-1"
-os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+# Static imports are now at the top, satisfying E402
 
-# Mock AWS Lambda Powertools before importing retrieve_logs
+# Mock AWS Lambda Powertools
 sys.modules["aws_lambda_powertools"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"].log_metrics = lambda func: func
@@ -25,7 +19,19 @@ sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = lamb
 # Mock boto3
 boto3.resource = MagicMock()
 
-# Import the module under test
+
+@pytest.fixture(autouse=True)
+def setup_lambda_handler():
+    # Set environment variables before importing retrieve_logs
+    os.environ["TABLE_NAME"] = "test-table"
+    os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
+    os.environ["AWS_REGION"] = "us-east-1"
+    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+    
+    # Dynamically import lambda_handler
+    from get_log.retrieve_logs import lambda_handler
+    return lambda_handler
 
 
 # Mock Lambda Context
@@ -63,7 +69,8 @@ def lambda_context():
     return MockContext()
 
 
-def test_query_without_parameters(mock_dynamodb, lambda_context):
+def test_query_without_parameters(mock_dynamodb, lambda_context, setup_lambda_handler):
+    lambda_handler = setup_lambda_handler
     mock_dynamodb.query.return_value = {
         "Items": [{"id": "1", "severity": "info", "message": "test"}],
         "LastEvaluatedKey": None
@@ -79,7 +86,8 @@ def test_query_without_parameters(mock_dynamodb, lambda_context):
     assert len(body["items"]) == 1
 
 
-def test_invalid_limit_negative(mock_logger, lambda_context):
+def test_invalid_limit_negative(mock_logger, lambda_context, setup_lambda_handler):
+    lambda_handler = setup_lambda_handler
     event = {"queryStringParameters": {"limit": "-1"}}
 
     response = lambda_handler(event, lambda_context)
@@ -90,7 +98,8 @@ def test_invalid_limit_negative(mock_logger, lambda_context):
     mock_logger.error.assert_called()
 
 
-def test_invalid_severity(mock_logger, lambda_context):
+def test_invalid_severity(mock_logger, lambda_context, setup_lambda_handler):
+    lambda_handler = setup_lambda_handler
     event = {"queryStringParameters": {"severity": "critical"}}
 
     response = lambda_handler(event, lambda_context)
@@ -101,7 +110,8 @@ def test_invalid_severity(mock_logger, lambda_context):
     mock_logger.error.assert_called()
 
 
-def test_pagination_continuation(mock_dynamodb, lambda_context):
+def test_pagination_continuation(mock_dynamodb, lambda_context, setup_lambda_handler):
+    lambda_handler = setup_lambda_handler
     start_key = {"id": "last-item", "datetime": "2023-01-01"}
     token = make_start_key_token(start_key)
 
@@ -120,7 +130,8 @@ def test_pagination_continuation(mock_dynamodb, lambda_context):
     assert len(body["items"]) == 1
 
 
-def test_dynamodb_error(mock_dynamodb, mock_logger, lambda_context):
+def test_dynamodb_error(mock_dynamodb, mock_logger, lambda_context, setup_lambda_handler):
+    lambda_handler = setup_lambda_handler
     mock_dynamodb.query.side_effect = Exception("DynamoDB error")
     event = {"queryStringParameters": None}
 
