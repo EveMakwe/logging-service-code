@@ -59,7 +59,7 @@ jobs:
       - name: Install Lambda dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --target ./package -r get/requirements.txt
+          pip install --target ./package -r get_log/requirements.txt
 
       - name: Package Lambda function
         run: |
