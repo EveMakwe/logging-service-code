@@ -4,7 +4,8 @@ import json
 import base64
 import pytest
 from unittest.mock import MagicMock
-
+import boto3
+from get_log.retrieve_logs import lambda_handler
 
 # Set up environment variables
 os.environ.update({
@@ -18,7 +19,9 @@ os.environ.update({
 
 # Create a pass-through decorator
 def passthrough_decorator(func):
-    return func
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
 
 
 # Mock AWS Lambda Powertools before imports
@@ -29,14 +32,8 @@ sys.modules["aws_lambda_powertools.logging"] = MagicMock()
 sys.modules["aws_lambda_powertools.logging"].logger = MagicMock()
 sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = passthrough_decorator
 
-
 # Mock boto3
-import boto3  # noqa: E402
 boto3.resource = MagicMock()
-
-
-# Import the module under test
-from get_log.retrieve_logs import lambda_handler  # noqa: E402
 
 
 # Mock Lambda Context
@@ -83,7 +80,6 @@ def test_query_without_parameters(mock_dynamodb, lambda_context):
 
     response = lambda_handler(event, lambda_context)
 
-    # Verify we got a real response, not a mock
     assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
