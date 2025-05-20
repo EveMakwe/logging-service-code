@@ -81,29 +81,37 @@ jobs:
             {
               "blocks": [
                 {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": ":white_check_mark: ingest_logs Lambda deployed to DEV",
-                    "emoji": true
-                  }
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Ref:*\n`${{ github.ref }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Event:*\n`${{ github.event_name }}`"
+                    }
+                  ]
                 },
                 {
                   "type": "section",
                   "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Deployed by:*\n${{ github.actor }}"
+                      "text": "*Actions URL:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|build-and-deploy-pro-strapi-apps>"
                     },
                     {
                       "type": "mrkdwn",
-                      "text": "*Repository:*\n${{ github.repository }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Branch:*\n${{ github.ref_name }}"
+                      "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}"
                     }
                   ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":white_check_mark: *Deployment success for pre-prod-ayoba-developer-portal-strapi-service*"
+                  }
                 }
               ]
             }
@@ -118,29 +126,31 @@ jobs:
             {
               "blocks": [
                 {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": ":x: ingest_logs Lambda deployment FAILED in DEV",
-                    "emoji": true
-                  }
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Ref:*\n`${{ github.ref }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Event:*\n`${{ github.event_name }}`"
+                    }
+                  ]
                 },
                 {
                   "type": "section",
                   "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Deployed by:*\n${{ github.actor }}"
+                      "text": "*Actions URL:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|build-and-deploy-pro-strapi-apps>"
                     },
                     {
                       "type": "mrkdwn",
-                      "text": "*Repository:*\n${{ github.repository }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Branch:*\n${{ github.ref_name }}"
+                      "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}"
                     }
                   ]
-                }
-              ]
-            }
+                },
+                {
+                  "type": "section",
+                  "text
