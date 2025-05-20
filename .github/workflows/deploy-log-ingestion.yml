@@ -6,7 +6,7 @@ on:
   # workflow_dispatch:
 
 env:
-  CHANNEL_ID: "C04PAF9GJ0K"
+  CHANNEL_ID: "C08T7JCKXEY"
 
 jobs:
   test_lint_scan:
@@ -70,12 +70,11 @@ jobs:
           aws lambda update-function-code \
             --function-name dev-logging-service-ingest-logs \
             --zip-file fileb://ingest_logs.zip
-
       - name: Slack Success Notification
         if: success()
-        uses: slackapi/slack-github-action@v1.26.0
+        uses: slackapi/slack-github-action@v2.1.0
         with:
-          channel-id: '${{ env.CHANNEL_ID }}'
+          channel-id: ${{ env.CHANNEL_ID }}
           payload: |
             {
               "blocks": [
@@ -86,17 +85,34 @@ jobs:
                     "text": ":white_check_mark: ingest_logs Lambda deployed to DEV",
                     "emoji": true
                   }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Deployed by:*\n${{ github.actor }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    }
+                  ]
                 }
               ]
             }
         env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_WEBHOOK }}
 
       - name: Slack Failure Notification
         if: failure()
-        uses: slackapi/slack-github-action@v1.26.0
+        uses: slackapi/slack-github-action@v2.1.0
         with:
-          channel-id: '${{ env.CHANNEL_ID }}'
+          channel-id: ${{ env.CHANNEL_ID }}
           payload: |
             {
               "blocks": [
@@ -107,8 +123,25 @@ jobs:
                     "text": ":x: ingest_logs Lambda deployment FAILED in DEV",
                     "emoji": true
                   }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Deployed by:*\n${{ github.actor }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    }
+                  ]
                 }
               ]
             }
         env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_WEBHOOK }}
