@@ -3,7 +3,7 @@ import sys
 import json
 import base64
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 # Set up environment variables
