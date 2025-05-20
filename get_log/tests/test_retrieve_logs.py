@@ -4,6 +4,7 @@ import json
 import base64
 import pytest
 from unittest.mock import MagicMock
+import boto3
 
 # Patch sys.modules for aws_lambda_powertools
 sys.modules["aws_lambda_powertools"] = MagicMock()
@@ -16,9 +17,9 @@ os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
 os.environ["AWS_REGION"] = "us-east-1"  # Fallback to avoid NoRegionError
 
 # Mock boto3.resource before importing the module
-import boto3
 boto3.resource = MagicMock()
 
+# Import the module after mocking
 from get_log import retrieve_logs as lambda_module  # noqa: E402
 
 

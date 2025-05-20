@@ -1,9 +1,9 @@
 name: Deploy Ingest Logs Lambda (Dev)
 
 on:
-  push:
-    branches: [workflows]
-  # workflow_dispatch:
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
 
 env:
   CHANNEL_ID: "C08T7JCKXEY"
@@ -38,6 +38,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: test-lint-scan
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'deploy_ingest_logs')
     permissions:
       id-token: write
       contents: read
@@ -73,6 +76,7 @@ jobs:
             --function-name dev-ingest-logs \
             --zip-file fileb://ingest_logs.zip
 
+      # Slack Success Notification
       - name: Slack Notification (Success)
         if: success()
         uses: rtCamp/action-slack-notify@v2
@@ -82,9 +86,10 @@ jobs:
           SLACK_TITLE: Lambda Deployment
           SLACK_MESSAGE: 'Deployment success in ${{ env.ENV }} for ${{ env.LAMBDA_SERVICE }}'
           SLACK_COLOR: good
-          SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
+          SLACK_FOOTER: '${{ github.repository }} | ${{ github.ref }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>'
           SLACK_ICON_EMOJI: ':rocket:'
 
+      # Slack Failure Notification
       - name: Slack Notification (Failure)
         if: failure()
         uses: rtCamp/action-slack-notify@v2
@@ -94,7 +99,7 @@ jobs:
           SLACK_TITLE: Lambda Deployment
           SLACK_MESSAGE: 'Deployment error in ${{ env.ENV }} for ${{ env.LAMBDA_SERVICE }}'
           SLACK_COLOR: danger
-          SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
+          SLACK_FOOTER: '${{ github.repository }} | ${{ github.ref }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>'
           SLACK_ICON_EMOJI: ':x:'
 
       - name: Print event JSON
