@@ -168,7 +168,7 @@ def test_pagination_continuation(monkeypatch, mock_dynamodb):
     expected_keys = {"items", "hasMore", "message"}
     assert set(body.keys()) == expected_keys
     assert body["items"] == [{"id": 2, "severity": "info", "message": "test message 2"}]
-    assert body["hasMore"] is False 
+    assert body["hasMore"] is False
     mock_dynamodb.query.assert_called_once_with(
         KeyConditionExpression="severity = :severity",
         ExpressionAttributeValues={":severity": "info"},
