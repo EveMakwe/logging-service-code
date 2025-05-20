@@ -4,7 +4,6 @@ import json
 import base64
 import pytest
 from unittest.mock import MagicMock
-from get_log import retrieve_logs as lambda_module
 
 
 # Patch sys.modules to avoid import errors from aws_lambda_powertools
@@ -15,6 +14,8 @@ sys.modules["aws_lambda_powertools.logging"] = MagicMock()
 # Set required env vars before importing your module
 os.environ["TABLE_NAME"] = "test-table"
 os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
+
+from get_log import retrieve_logs as lambda_module
 
 
 def make_start_key_token(start_key: dict):
