@@ -4,7 +4,8 @@ import json
 import base64
 import pytest
 from unittest.mock import MagicMock
-import retrieve_logs as lambda_module
+from get_log import retrieve_logs as lambda_module
+
 
 # Patch sys.modules to avoid import errors from aws_lambda_powertools
 sys.modules["aws_lambda_powertools"] = MagicMock()
