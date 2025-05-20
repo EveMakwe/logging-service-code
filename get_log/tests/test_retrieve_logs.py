@@ -28,7 +28,7 @@ def setup_lambda_handler():
     os.environ["AWS_REGION"] = "us-east-1"
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
-    
+
     # Dynamically import lambda_handler
     from get_log.retrieve_logs import lambda_handler
     return lambda_handler
