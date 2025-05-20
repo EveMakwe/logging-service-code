@@ -3,12 +3,14 @@ import sys
 import json
 import base64
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 # Create a real decorator that just passes through
 def passthrough_decorator(func):
-    return func
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
 
 
 # Mock AWS Lambda Powertools before imports
@@ -64,11 +66,11 @@ def test_query_without_parameters(mock_dynamodb):
     event = {"queryStringParameters": None}
     context = {}
 
-    # Patch the actual handler function to bypass decorators
-    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
-        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
-        response = mock_handler(event, context)
+    # Call the actual decorated handler
+    response = lambda_module.lambda_handler(event, context)
 
+    # Ensure we got a real response, not a mock
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
     assert isinstance(body["items"], list)
@@ -81,10 +83,9 @@ def test_invalid_limit_negative(mock_logger):
     event = {"queryStringParameters": {"limit": "-1"}}
     context = {}
 
-    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
-        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
-        response = mock_handler(event, context)
+    response = lambda_module.lambda_handler(event, context)
 
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 400
     assert "Limit must be positive" in response["body"]
     mock_logger.error.assert_called()
@@ -94,10 +95,9 @@ def test_invalid_severity(mock_logger):
     event = {"queryStringParameters": {"severity": "critical"}}
     context = {}
 
-    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
-        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
-        response = mock_handler(event, context)
+    response = lambda_module.lambda_handler(event, context)
 
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 400
     assert "Invalid severity" in response["body"]
     mock_logger.error.assert_called()
@@ -115,10 +115,9 @@ def test_pagination_continuation(mock_dynamodb):
     event = {"queryStringParameters": {"startKey": token}}
     context = {}
 
-    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
-        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
-        response = mock_handler(event, context)
+    response = lambda_module.lambda_handler(event, context)
 
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
     assert len(body["items"]) == 1
@@ -130,9 +129,7 @@ def test_dynamodb_error(mock_dynamodb, mock_logger):
     event = {"queryStringParameters": None}
     context = {}
 
-    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
-        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
-        response = mock_handler(event, context)
-
+    response = lambda_module.lambda_handler(event, context)
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 500
     mock_logger.error.assert_called()
