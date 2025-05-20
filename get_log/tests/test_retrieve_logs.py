@@ -5,41 +5,46 @@ import base64
 import pytest
 from unittest.mock import MagicMock
 
+# ---- Patch Powertools decorators as passthroughs BEFORE importing the handler ----
 
-# Create a real decorator that just passes through
+
 def passthrough_decorator(func):
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
     return wrapper
 
 
-# Mock AWS Lambda Powertools before imports
+# Patch modules and decorators
 sys.modules["aws_lambda_powertools"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"].metrics_headers = passthrough_decorator
 sys.modules["aws_lambda_powertools.metrics"].log_metrics = passthrough_decorator
 sys.modules["aws_lambda_powertools.logging"] = MagicMock()
 sys.modules["aws_lambda_powertools.logging"].logger = MagicMock()
-sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = passthrough_decorator
+sys.modules["aws_lambda_powertools.logging"].inject_lambda_context = passthrough_decorator
 
+# ---- Set environment variables ----
 
-# Set environment variables
 os.environ.update({
     "TABLE_NAME": "test-table",
     "PROJECTION_FIELDS": "id,severity,#datetime,message",
     "AWS_REGION": "us-east-1"
 })
 
-
 import boto3  # noqa: E402
 boto3.resource = MagicMock()
 
+# ---- Import your lambda handler after patching ----
 
 from get_log import retrieve_logs as lambda_module  # noqa: E402
+
+# ---- Test utility functions ----
 
 
 def make_start_key_token(start_key: dict) -> str:
     return base64.urlsafe_b64encode(json.dumps(start_key).encode()).decode()
+
+# ---- Pytest fixtures ----
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +61,8 @@ def mock_logger(monkeypatch):
     mock_logger = MagicMock()
     monkeypatch.setattr(lambda_module, "logger", mock_logger)
     yield mock_logger
+
+# ---- Tests ----
 
 
 def test_query_without_parameters(mock_dynamodb):
