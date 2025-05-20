@@ -16,6 +16,29 @@ os.environ.update({
 })
 
 
+# Create a pass-through decorator
+def passthrough_decorator(func):
+    return func
+
+
+# Mock AWS Lambda Powertools before imports
+sys.modules["aws_lambda_powertools"] = MagicMock()
+sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
+sys.modules["aws_lambda_powertools.metrics"].log_metrics = passthrough_decorator
+sys.modules["aws_lambda_powertools.logging"] = MagicMock()
+sys.modules["aws_lambda_powertools.logging"].logger = MagicMock()
+sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = passthrough_decorator
+
+
+# Mock boto3
+import boto3  # noqa: E402
+boto3.resource = MagicMock()
+
+
+# Import the module under test
+from get_log.retrieve_logs import lambda_handler  # noqa: E402
+
+
 # Mock Lambda Context
 class MockContext:
     function_name = "test-function"
@@ -27,20 +50,6 @@ class MockContext:
     log_stream_name = "2023/01/01/[$LATEST]test-stream"
 
 
-# Mock AWS services before imports
-with patch('boto3.resource') as mock_boto3_resource:
-    mock_table = MagicMock()
-    mock_boto3_resource.return_value.Table.return_value = mock_table
-
-    # Mock Powertools
-    sys.modules["aws_lambda_powertools"] = MagicMock()
-    sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
-    sys.modules["aws_lambda_powertools.logging"] = MagicMock()
-
-    # Import the module
-    from get_log.retrieve_logs import lambda_handler  # noqa: E402
-
-
 def make_start_key_token(start_key: dict) -> str:
     return base64.urlsafe_b64encode(json.dumps(start_key).encode()).decode()
 
@@ -48,9 +57,16 @@ def make_start_key_token(start_key: dict) -> str:
 @pytest.fixture(autouse=True)
 def mock_dynamodb():
     mock_table = MagicMock()
-    with patch('boto3.resource') as mock_boto3_resource:
-        mock_boto3_resource.return_value.Table.return_value = mock_table
-        yield mock_table
+    boto3.resource.return_value.Table.return_value = mock_table
+    yield mock_table
+    mock_table.reset_mock()
+
+
+@pytest.fixture(autouse=True)
+def mock_logger(monkeypatch):
+    mock_logger = MagicMock()
+    monkeypatch.setattr("get_log.retrieve_logs.logger", mock_logger)
+    yield mock_logger
 
 
 @pytest.fixture
@@ -59,7 +75,6 @@ def lambda_context():
 
 
 def test_query_without_parameters(mock_dynamodb, lambda_context):
-    # Setup successful query response
     mock_dynamodb.query.return_value = {
         "Items": [{"id": "1", "severity": "info", "message": "test"}],
         "LastEvaluatedKey": None
@@ -68,28 +83,37 @@ def test_query_without_parameters(mock_dynamodb, lambda_context):
 
     response = lambda_handler(event, lambda_context)
 
+    # Verify we got a real response, not a mock
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
     assert "items" in body
     assert len(body["items"]) == 1
 
 
-def test_invalid_limit_negative(lambda_context):
+def test_invalid_limit_negative(mock_logger, lambda_context):
     event = {"queryStringParameters": {"limit": "-1"}}
+
     response = lambda_handler(event, lambda_context)
+
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 400
     assert "Limit must be positive" in response["body"]
+    mock_logger.error.assert_called()
 
 
-def test_invalid_severity(lambda_context):
+def test_invalid_severity(mock_logger, lambda_context):
     event = {"queryStringParameters": {"severity": "critical"}}
+
     response = lambda_handler(event, lambda_context)
+
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 400
     assert "Invalid severity" in response["body"]
+    mock_logger.error.assert_called()
 
 
 def test_pagination_continuation(mock_dynamodb, lambda_context):
-    # Setup pagination test
     start_key = {"id": "last-item", "datetime": "2023-01-01"}
     token = make_start_key_token(start_key)
 
@@ -99,15 +123,21 @@ def test_pagination_continuation(mock_dynamodb, lambda_context):
     }
 
     event = {"queryStringParameters": {"startKey": token}}
+
     response = lambda_handler(event, lambda_context)
 
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
     assert len(body["items"]) == 1
 
 
-def test_dynamodb_error(mock_dynamodb, lambda_context):
+def test_dynamodb_error(mock_dynamodb, mock_logger, lambda_context):
     mock_dynamodb.query.side_effect = Exception("DynamoDB error")
     event = {"queryStringParameters": None}
+
     response = lambda_handler(event, lambda_context)
+
+    assert not isinstance(response, MagicMock)
     assert response["statusCode"] == 500
+    mock_logger.error.assert_called()
