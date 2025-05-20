@@ -1,4 +1,3 @@
-import os
 import sys
 import json
 import base64
@@ -7,33 +6,25 @@ from unittest.mock import MagicMock
 import boto3
 from get_log.retrieve_logs import lambda_handler
 
-# Set up environment variables
-os.environ.update({
-    "TABLE_NAME": "test-table",
-    "PROJECTION_FIELDS": "id,severity,#datetime,message",
-    "AWS_REGION": "us-east-1",
-    "AWS_ACCESS_KEY_ID": "testing",
-    "AWS_SECRET_ACCESS_KEY": "testing"
-})
-
-
-# Create a pass-through decorator
-def passthrough_decorator(func):
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    return wrapper
-
-
-# Mock AWS Lambda Powertools before imports
+# Mock AWS Lambda Powertools before any further imports
 sys.modules["aws_lambda_powertools"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
-sys.modules["aws_lambda_powertools.metrics"].log_metrics = passthrough_decorator
+sys.modules["aws_lambda_powertools.metrics"].log_metrics = lambda func: func
 sys.modules["aws_lambda_powertools.logging"] = MagicMock()
 sys.modules["aws_lambda_powertools.logging"].logger = MagicMock()
-sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = passthrough_decorator
+sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = lambda func: func
 
 # Mock boto3
 boto3.resource = MagicMock()
+
+
+@pytest.fixture(autouse=True)
+def setup_env(monkeypatch):
+    monkeypatch.setenv("TABLE_NAME", "test-table")
+    monkeypatch.setenv("PROJECTION_FIELDS", "id,severity,#datetime,message")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
 
 
 # Mock Lambda Context
