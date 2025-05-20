@@ -3,9 +3,9 @@ import sys
 import json
 import base64
 import pytest
-from unittest.mock import MagicMock
-import importlib
 import boto3
+import importlib
+from unittest.mock import MagicMock
 
 
 def dummy_log_metrics(*args, **kwargs):
@@ -18,11 +18,13 @@ sys.modules["aws_lambda_powertools"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"].log_metrics = dummy_log_metrics
 sys.modules["aws_lambda_powertools.logging"] = MagicMock()
+
 os.environ["TABLE_NAME"] = "test-table"
 os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
 os.environ["AWS_REGION"] = "us-east-1"
 
 boto3.resource = MagicMock()
+
 lambda_module = importlib.import_module("get_log.retrieve_logs")
 
 
@@ -152,7 +154,6 @@ def test_max_limit(monkeypatch, mock_dynamodb):
 
 
 def test_missing_query_parameters(monkeypatch, mock_dynamodb):
-
     mock_dynamodb.query.return_value = {
         "Items": [{"id": 1, "severity": "info", "message": "test message"}],
         "LastEvaluatedKey": None,
