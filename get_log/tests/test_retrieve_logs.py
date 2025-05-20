@@ -5,6 +5,7 @@ import base64
 import pytest
 from unittest.mock import MagicMock
 import importlib
+import boto3
 
 
 def dummy_log_metrics(*args, **kwargs):
@@ -20,7 +21,7 @@ sys.modules["aws_lambda_powertools.logging"] = MagicMock()
 os.environ["TABLE_NAME"] = "test-table"
 os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
 os.environ["AWS_REGION"] = "us-east-1"
-import boto3
+
 boto3.resource = MagicMock()
 lambda_module = importlib.import_module("get_log.retrieve_logs")
 
