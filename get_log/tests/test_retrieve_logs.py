@@ -3,26 +3,25 @@ import sys
 import json
 import base64
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
-def mock_lambda_decorator(*args, **kwargs):
-    def decorator(f):
-        def wrapper(*args, **kwargs):
-            return f(*args, **kwargs)
-        return wrapper
-    return decorator
+# Create a real decorator that just passes through
+def passthrough_decorator(func):
+    return func
 
 
+# Mock AWS Lambda Powertools before imports
 sys.modules["aws_lambda_powertools"] = MagicMock()
 sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
-sys.modules["aws_lambda_powertools.metrics"].metrics_headers = lambda x: x
-sys.modules["aws_lambda_powertools.metrics"].log_metrics = mock_lambda_decorator
+sys.modules["aws_lambda_powertools.metrics"].metrics_headers = passthrough_decorator
+sys.modules["aws_lambda_powertools.metrics"].log_metrics = passthrough_decorator
 sys.modules["aws_lambda_powertools.logging"] = MagicMock()
 sys.modules["aws_lambda_powertools.logging"].logger = MagicMock()
-sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = mock_lambda_decorator
+sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = passthrough_decorator
 
 
+# Set environment variables
 os.environ.update({
     "TABLE_NAME": "test-table",
     "PROJECTION_FIELDS": "id,severity,#datetime,message",
@@ -63,7 +62,12 @@ def test_query_without_parameters(mock_dynamodb):
         "LastEvaluatedKey": None
     }
     event = {"queryStringParameters": None}
-    response = lambda_module.lambda_handler(event, {})
+    context = {}
+
+    # Patch the actual handler function to bypass decorators
+    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
+        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
+        response = mock_handler(event, context)
 
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
@@ -75,7 +79,11 @@ def test_query_without_parameters(mock_dynamodb):
 
 def test_invalid_limit_negative(mock_logger):
     event = {"queryStringParameters": {"limit": "-1"}}
-    response = lambda_module.lambda_handler(event, {})
+    context = {}
+
+    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
+        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
+        response = mock_handler(event, context)
 
     assert response["statusCode"] == 400
     assert "Limit must be positive" in response["body"]
@@ -84,7 +92,11 @@ def test_invalid_limit_negative(mock_logger):
 
 def test_invalid_severity(mock_logger):
     event = {"queryStringParameters": {"severity": "critical"}}
-    response = lambda_module.lambda_handler(event, {})
+    context = {}
+
+    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
+        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
+        response = mock_handler(event, context)
 
     assert response["statusCode"] == 400
     assert "Invalid severity" in response["body"]
@@ -101,7 +113,11 @@ def test_pagination_continuation(mock_dynamodb):
     }
 
     event = {"queryStringParameters": {"startKey": token}}
-    response = lambda_module.lambda_handler(event, {})
+    context = {}
+
+    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
+        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
+        response = mock_handler(event, context)
 
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
@@ -112,7 +128,11 @@ def test_pagination_continuation(mock_dynamodb):
 def test_dynamodb_error(mock_dynamodb, mock_logger):
     mock_dynamodb.query.side_effect = Exception("DynamoDB error")
     event = {"queryStringParameters": None}
-    response = lambda_module.lambda_handler(event, {})
+    context = {}
+
+    with patch.object(lambda_module, 'lambda_handler') as mock_handler:
+        mock_handler.side_effect = lambda_module.lambda_handler.__wrapped__
+        response = mock_handler(event, context)
 
     assert response["statusCode"] == 500
     mock_logger.error.assert_called()
