@@ -1,3 +1,4 @@
+# .github/workflows/deploy-log-retrieval.yml
 name: Deploy Ingest Logs Lambda (Dev)
 
 on:
@@ -7,8 +8,8 @@ on:
 
 env:
   CHANNEL_ID: "C08T7JCKXEY"
-  ENV: "dev"
-  LAMBDA_SERVICE: "ingest-logs"
+  ENV: "DEV"
+  LAMBDA_SERVICE: "Retrieve-logs-lambda"
 
 jobs:
   test-lint-scan:
@@ -65,12 +66,12 @@ jobs:
           cd package
           zip -r ../ingest_logs.zip .
           cd ..
-          zip -j ingest_logs.zip write_log/*.py
+          zip -j ingest_logs.zip get_log/*.py
 
       - name: Deploy Lambda function
         run: |
           aws lambda update-function-code \
-            --function-name dev-logging-service-ingest-logs \
+            --function-name dev-retrieve-logs \
             --zip-file fileb://ingest_logs.zip
 
       - name: Slack Notification (Success)

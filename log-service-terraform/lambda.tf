@@ -1,7 +1,7 @@
 # ============Lambda function for creating logs===========================
 
 resource "aws_lambda_function" "ingest_logs" {
-  function_name = "${local.name}-ingest-logs"
+  function_name = "${var.env}-ingest-logs"
   runtime       = "python3.12"
   handler       = "ingest_logs.lambda_handler"
   role          = aws_iam_role.ingest_logs_service.arn
@@ -20,9 +20,9 @@ resource "aws_lambda_function" "ingest_logs" {
 
 
 resource "aws_lambda_alias" "ingest_logs_alias" {
-  name             = "${local.name}-ingest-logs-alias"
+  name             = "${var.env}-ingest-logs-alias"
   description      = "An alias for the version of lambda"
-  function_name    = "${local.name}-ingest-logs"
+  function_name    = "${var.env}-ingest-logs"
   function_version = "$LATEST"
   depends_on       = [aws_lambda_function.ingest_logs]
 }
@@ -31,7 +31,7 @@ resource "aws_lambda_alias" "ingest_logs_alias" {
 # ==========Lambda function for retrieving logs========================
 
 resource "aws_lambda_function" "retrieve_logs" {
-  function_name = "${local.name}-retrieve-logs"
+  function_name = "${var.env}-retrieve-logs"
   runtime       = "python3.12"
   handler       = "retrieve_logs.lambda_handler"
   timeout       = 300
@@ -57,9 +57,9 @@ resource "aws_lambda_function" "retrieve_logs" {
 
 
 resource "aws_lambda_alias" "retrieve_logs_alias" {
-  name             = "${local.name}-retrieve-logs-alias"
+  name             = "${var.env}-retrieve-logs-alias"
   description      = "An alias for the version of lambda"
-  function_name    = "${local.name}-retrieve-logs"
+  function_name    = "${var.env}-retrieve-logs"
   function_version = "$LATEST"
   depends_on       = [aws_lambda_function.retrieve_logs]
 }
