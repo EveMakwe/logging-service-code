@@ -13,14 +13,13 @@ os.environ.update({
 })
 
 
-# Import the module under test without powertools decorators
-with patch.dict('sys.modules', {
-    'aws_lambda_powertools': MagicMock(),
-    'aws_lambda_powertools.metrics': MagicMock(),
-    'aws_lambda_powertools.logging': MagicMock()
-}):
-    import boto3  # noqa: E402
-    boto3.resource = MagicMock()
+# Mock boto3 and AWS services before importing the module
+with patch('boto3.resource') as mock_boto3_resource:
+    # Set up mock DynamoDB table
+    mock_table = MagicMock()
+    mock_boto3_resource.return_value.Table.return_value = mock_table
+
+    # Import the module under test
     from get_log.retrieve_logs import lambda_handler as undecorated_handler  # noqa: E402
 
 
@@ -29,12 +28,11 @@ def make_start_key_token(start_key: dict) -> str:
 
 
 @pytest.fixture(autouse=True)
-def mock_dynamodb(monkeypatch):
+def mock_dynamodb():
     mock_table = MagicMock()
-    boto3.resource.return_value.Table.return_value = mock_table
-    monkeypatch.setattr('get_log.retrieve_logs.table', mock_table)
-    yield mock_table
-    mock_table.reset_mock()
+    with patch('boto3.resource') as mock_boto3_resource:
+        mock_boto3_resource.return_value.Table.return_value = mock_table
+        yield mock_table
 
 
 @pytest.fixture(autouse=True)
