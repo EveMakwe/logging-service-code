@@ -1,18 +1,19 @@
-```mermaid
 graph TD
-    A[Client] -->|Authenticate| B[AWS Cognito]
-    A -->|POST /logs| C[API Gateway]
-    A -->|GET /logs| C
-    C -->|Validate JWT| B
-    C -->|POST| D[Lambda: Log Entry]
-    C -->|GET| E[Lambda: Log Retrieval]
-    D --> F[DynamoDB: LogTable]
-    E --> F
-    D --> G[CloudWatch Logs]
-    E --> G
-    H[GitHub Actions] -->|Deploy| I[Terraform]
-    I --> C
-    I --> D
-    I --> E
-    I --> F
-    I --> B
+    subgraph Client
+        A[Cognito Authenticated User]
+    end
+    subgraph AWS Cloud
+        B[Cognito User Pool]
+        C[API Gateway]
+        D[Lambda Log Ingest]
+        E[Lambda Log Retrieve]
+        F[(DynamoDB Table)]
+        G[KMS Key]
+    end
+    A-->|JWT Token|C
+    C-->|Invoke (POST /logs)|D
+    C-->|Invoke (GET /logs)|E
+    D-->|PutItem|F
+    E-->|Query (Last 100)|F
+    F-->|Encryption|G
+    C-->|Authorizer|B
