@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies for lint/test/scan
         run: |
           pip install -r get_log/requirements.txt
-          pip install pytest flake8 bandit
+          pip install pytest pytest-cov flake8 bandit
 
       - name: Lint Lambda code
         run: flake8 get_log/

@@ -1,228 +1,182 @@
-import boto3
+import pytest
 import json
-import os
-import time
-import base64
-from boto3.dynamodb.conditions import Key
-from botocore.exceptions import ClientError
-from aws_lambda_powertools import Logger, Metrics
-from aws_lambda_powertools.metrics import MetricUnit
-from typing import Dict, Any, Optional, Tuple
+from unittest.mock import MagicMock, patch
 
-# --- Constants and Configuration ---
-
-MAX_LIMIT = 100
-VALID_SEVERITIES = frozenset({"info", "warning", "error"})
-DEFAULT_HEADERS = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-}
-PROJECTION_FIELDS = os.environ.get(
-    "PROJECTION_FIELDS", "id,severity,#datetime,message"
-).split(",")
-EXPRESSION_ATTRIBUTE_NAMES = {"#datetime": "datetime"}
-
-# --- Logging and Metrics ---
-
-logger = Logger(service="LogQueryService")
-metrics = Metrics(namespace="LogQueryService")
-
-# --- DynamoDB Helpers ---
+# Patch before import to avoid side effects
+with patch("get_log.retrieve_logs.validate_projection_fields"):
+    import get_log.retrieve_logs as retrieve_logs
 
 
-def get_dynamodb_resource():
-    # Optionally, pull region from env, config, or default
-    region = os.environ.get("AWS_REGION", "us-west-2")
-    return boto3.resource("dynamodb", region_name=region)
+class LambdaContext:
+    def __init__(self):
+        self.function_name = "test-function"
+        self.function_version = "$LATEST"
+        self.invoked_function_arn = (
+            "arn:aws:lambda:us-west-2:123456789012:function:test-function"
+        )
+        self.memory_limit_in_mb = 128
+        self.aws_request_id = "test-request-id"
+        self.log_group_name = "/aws/lambda/test-function"
+        self.log_stream_name = "2025/05/21/[$LATEST]test-stream"
 
 
-def get_table():
-    table_name = os.environ.get("TABLE_NAME")
-    if not table_name:
-        logger.error("Environment variable TABLE_NAME is required")
-        raise RuntimeError("TABLE_NAME not configured")
-    return get_dynamodb_resource().Table(table_name)
+@pytest.fixture(autouse=True)
+def setup_env(monkeypatch):
+    monkeypatch.setenv("TABLE_NAME", "TestTable")
+    monkeypatch.setenv("PROJECTION_FIELDS", "id,severity,#datetime,message")
+    monkeypatch.setenv("POWERTOOLS_METRICS_NAMESPACE", "LogQueryService")
+    monkeypatch.setenv("POWERTOOLS_SERVICE_NAME", "LogQueryService")
+    monkeypatch.setenv("AWS_REGION", "us-west-2")
+    monkeypatch.setenv("VALIDATE_PROJECTION_FIELDS", "false")
 
 
-def validate_projection_fields():
-    """Log a warning if projection fields are not part of table schema (key/index fields only)."""
-    try:
-        table_name = os.environ.get("TABLE_NAME")
-        if not table_name:
-            return
-        dynamodb = get_dynamodb_resource()
-        response = dynamodb.meta.client.describe_table(TableName=table_name)
-        indexed_fields = {
-            attr["AttributeName"] for attr in response["Table"]["AttributeDefinitions"]
-        }
-        projection_attributes = {
-            field
-            for field in PROJECTION_FIELDS
-            if field not in EXPRESSION_ATTRIBUTE_NAMES
-        }
-        unindexed_fields = projection_attributes - indexed_fields
-        if unindexed_fields:
-            logger.warning(
-                f"The following projection fields are not defined in the index schema: {unindexed_fields}"
-            )
-    except ClientError as e:
-        logger.warning(f"Could not validate table schema: {e}")
+@pytest.fixture
+def mock_table():
+    return MagicMock()
 
 
-# Only validate when running as an actual Lambda or CLI (not on import during tests)
-if os.environ.get("VALIDATE_PROJECTION_FIELDS", "true").lower() == "true":
-    validate_projection_fields()
-
-# --- Helpers ---
+@pytest.fixture
+def lambda_context():
+    return LambdaContext()
 
 
-def build_response(status_code: int, body: Dict) -> Dict:
-    return {
-        "statusCode": status_code,
-        "headers": DEFAULT_HEADERS,
-        "body": json.dumps(body, default=str, indent=2),
+def test_lambda_handler_info_query(mock_table, lambda_context):
+    mock_table.query.return_value = {
+        "Items": [
+            {
+                "id": "1",
+                "severity": "info",
+                "datetime": "2024-01-01T00:00:00Z",
+                "message": "Test log",
+            }
+        ],
+        "LastEvaluatedKey": None,
     }
+    event = {"queryStringParameters": {"severity": "info", "limit": "1"}}
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 200
+    assert "items" in body
+    assert len(body["items"]) == 1
+    assert body["items"][0]["severity"] == "info"
 
 
-def encode_start_key(start_key: Dict) -> str:
-    return base64.urlsafe_b64encode(json.dumps(start_key).encode()).decode()
-
-
-def decode_start_key(encoded_key: str) -> Dict:
-    try:
-        return json.loads(base64.urlsafe_b64decode(encoded_key).decode())
-    except (base64.binascii.Error, json.JSONDecodeError, UnicodeDecodeError) as e:
-        logger.error(f"Invalid pagination token: {e}")
-        raise ValueError("Invalid or tampered pagination token")
-
-
-def validate_start_key(start_key: Any, severity: Optional[str] = None) -> bool:
-    if not isinstance(start_key, dict):
-        return False
-    required_keys = {"severity", "datetime"} if severity else {"partition", "datetime"}
-    return all(key in start_key for key in required_keys)
-
-
-def execute_query(
-    index_name: str,
-    key_condition,
-    limit: int,
-    start_key: Optional[Dict] = None,
-    table=None,
-) -> Tuple[list, bool, Optional[str]]:
-    if table is None:
-        table = get_table()
-    params = {
-        "IndexName": index_name,
-        "KeyConditionExpression": key_condition,
-        "ScanIndexForward": False,
-        "Limit": limit,
-        "ProjectionExpression": ",".join(PROJECTION_FIELDS),
-        "ExpressionAttributeNames": EXPRESSION_ATTRIBUTE_NAMES,
+def test_lambda_handler_no_severity(mock_table, lambda_context):
+    mock_table.query.return_value = {
+        "Items": [
+            {
+                "id": "2",
+                "severity": "warning",
+                "datetime": "2024-01-02T00:00:00Z",
+                "message": "Warning log",
+            }
+        ],
+        "LastEvaluatedKey": None,
     }
-    if start_key:
-        params["ExclusiveStartKey"] = start_key
-
-    start_time = time.time()
-    try:
-        response = table.query(**params)
-        latency = (time.time() - start_time) * 1000
-        metrics.add_metric(
-            name=f"{index_name}QueryLatency",
-            unit=MetricUnit.Milliseconds,
-            value=latency,
-        )
-        items = response.get("Items", [])
-        last_key = response.get("LastEvaluatedKey")
-        has_more = bool(last_key)
-        encoded_key = encode_start_key(last_key) if has_more else None
-        return items, has_more, encoded_key
-    except Exception as e:
-        metrics.add_metric(
-            name=f"{index_name}QueryErrors", unit=MetricUnit.Count, value=1
-        )
-        logger.error(f"Error in execute_query: {e}", exc_info=True)
-        raise
+    event = {"queryStringParameters": {"limit": "1"}}
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 200
+    assert "items" in body
 
 
-# --- Lambda Handler ---
+@pytest.mark.parametrize(
+    "event",
+    [
+        ({"queryStringParameters": {"severity": "invalid"}}),
+        ({"queryStringParameters": {"limit": "-5"}}),
+    ],
+)
+def test_lambda_handler_invalid_inputs(mock_table, lambda_context, event):
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 400
+    assert "error" in body
 
 
-@metrics.log_metrics(capture_cold_start_metric=True)
-def lambda_handler(event: Dict, context: Any, table=None) -> Dict:
-    # The 'table' parameter is for test injection/mocking
-    try:
-        query_params = event.get("queryStringParameters") or {}
-        severity = query_params.get("severity", "").strip().lower()
+def test_lambda_handler_no_items(mock_table, lambda_context):
+    mock_table.query.return_value = {"Items": []}
+    event = {"queryStringParameters": {"severity": "info", "limit": "1"}}
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 200
+    assert body["items"] == []
+    assert body["hasMore"] is False
 
-        try:
-            limit = min(int(query_params.get("limit", MAX_LIMIT)), MAX_LIMIT)
-            if limit <= 0:
-                raise ValueError("Limit must be positive")
-        except ValueError as e:
-            return build_response(400, {"error": str(e)})
 
-        start_key = None
-        if "startKey" in query_params and query_params["startKey"]:
-            try:
-                start_key = decode_start_key(query_params["startKey"])
-                if not validate_start_key(start_key, severity):
-                    return build_response(
-                        400, {"error": "Invalid pagination token structure"}
-                    )
-            except ValueError as e:
-                return build_response(400, {"error": str(e)})
+def test_lambda_handler_with_pagination(mock_table, lambda_context):
+    mock_table.query.return_value = {
+        "Items": [
+            {
+                "id": "3",
+                "severity": "error",
+                "datetime": "2024-01-03T00:00:00Z",
+                "message": "Error log",
+            }
+        ],
+        "LastEvaluatedKey": {
+            "severity": "error",
+            "datetime": "2024-01-03T00:00:00Z",
+            "id": "3",
+        },
+    }
+    event = {"queryStringParameters": {"severity": "error", "limit": "1"}}
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 200
+    assert len(body["items"]) == 1
+    assert body["hasMore"] is True
+    assert "nextToken" in body
 
-        logger.info(
-            "Processing log request",
-            extra={
-                "severity": severity,
-                "limit": limit,
-                "has_start_key": bool(start_key),
-            },
-        )
 
-        if severity:
-            if severity not in VALID_SEVERITIES:
-                return build_response(
-                    400,
-                    {
-                        "error": f"Invalid severity. Must be one of {sorted(VALID_SEVERITIES)}"
-                    },
-                )
-            items, has_more, next_token = execute_query(
-                "severityindex",
-                Key("severity").eq(severity),
-                limit,
-                start_key,
-                table=table,
-            )
-        else:
-            items, has_more, next_token = execute_query(
-                "alldatetimeindex",
-                Key("partition").eq("ALL"),
-                limit,
-                start_key,
-                table=table,
-            )
+def test_lambda_handler_dynamodb_error(mock_table, lambda_context):
+    mock_table.query.side_effect = Exception("DynamoDB error")
+    event = {"queryStringParameters": {"severity": "info", "limit": "1"}}
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 500
+    assert "error" in body
 
-        if not items:
-            return build_response(
-                200, {"message": "No logs found", "items": [], "hasMore": False}
-            )
 
-        response_body = {"items": items, "hasMore": has_more}
-        if has_more:
-            response_body["nextToken"] = next_token
+# New test cases to improve coverage
+def test_lambda_handler_missing_query_string_parameters(mock_table, lambda_context):
+    event = {}  # No queryStringParameters
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 400
+    assert "error" in body
+    assert "Missing queryStringParameters" in body["error"]
 
-        return build_response(200, response_body)
 
-    except ClientError as e:
-        logger.error(f"DynamoDB error: {e}", exc_info=True)
-        metrics.add_metric(name="DynamoDBErrors", unit=MetricUnit.Count, value=1)
-        return build_response(500, {"error": "Database operation failed"})
+@pytest.mark.parametrize(
+    "event",
+    [
+        ({"queryStringParameters": {"limit": "0"}}),  # Zero limit
+        ({"queryStringParameters": {"limit": "abc"}}),  # Non-numeric limit
+    ],
+)
+def test_lambda_handler_invalid_limit(mock_table, lambda_context, event):
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 400
+    assert "error" in body
+    assert "Invalid limit value" in body["error"]
 
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
-        metrics.add_metric(name="SystemErrors", unit=MetricUnit.Count, value=1)
-        return build_response(500, {"error": "Internal server error"})
+
+def test_lambda_handler_provisioned_throughput_error(mock_table, lambda_context):
+    mock_table.query.side_effect = Exception("ProvisionedThroughputExceededException")
+    event = {"queryStringParameters": {"severity": "info", "limit": "1"}}
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 429  # Too Many Requests
+    assert "error" in body
+    assert "ProvisionedThroughputExceededException" in body["error"]
+
+
+def test_lambda_handler_malformed_query_string_parameters(mock_table, lambda_context):
+    event = {"queryStringParameters": "not_a_dict"}  # Malformed queryStringParameters
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 400
+    assert "error" in body
+    assert "Invalid queryStringParameters format" in body["error"]
