@@ -136,3 +136,47 @@ def test_lambda_handler_dynamodb_error(mock_table, lambda_context):
     body = json.loads(response["body"])
     assert response["statusCode"] == 500
     assert "error" in body
+
+
+# New test cases to improve coverage
+def test_lambda_handler_missing_query_string_parameters(mock_table, lambda_context):
+    event = {}  # No queryStringParameters
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 400
+    assert "error" in body
+    assert "Missing queryStringParameters" in body["error"]
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        ({"queryStringParameters": {"limit": "0"}}),  # Zero limit
+        ({"queryStringParameters": {"limit": "abc"}}),  # Non-numeric limit
+    ],
+)
+def test_lambda_handler_invalid_limit(mock_table, lambda_context, event):
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 400
+    assert "error" in body
+    assert "Invalid limit value" in body["error"]
+
+
+def test_lambda_handler_provisioned_throughput_error(mock_table, lambda_context):
+    mock_table.query.side_effect = Exception("ProvisionedThroughputExceededException")
+    event = {"queryStringParameters": {"severity": "info", "limit": "1"}}
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 429  # Too Many Requests
+    assert "error" in body
+    assert "ProvisionedThroughputExceededException" in body["error"]
+
+
+def test_lambda_handler_malformed_query_string_parameters(mock_table, lambda_context):
+    event = {"queryStringParameters": "not_a_dict"}  # Malformed queryStringParameters
+    response = retrieve_logs.lambda_handler(event, lambda_context, table=mock_table)
+    body = json.loads(response["body"])
+    assert response["statusCode"] == 400
+    assert "error" in body
+    assert "Invalid queryStringParameters format" in body["error"]
