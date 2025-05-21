@@ -1,5 +1,5 @@
 resource "aws_secretsmanager_secret" "cognito_apigwuser_password" {
-  name = "${local.name}-cognito-apigwuser-temp"
+  name = "${local.name}-cognito-apigwuser-temps"
 }
 
 resource "aws_secretsmanager_secret_version" "cognito_apigwuser_password" {

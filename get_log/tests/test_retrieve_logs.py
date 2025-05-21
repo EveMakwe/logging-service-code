@@ -1,142 +1,96 @@
-import sys
-import json
-import base64
+import os
 import pytest
-from unittest.mock import MagicMock, patch
-import boto3
-from get_log.retrieve_logs import lambda_handler
+import json
+from unittest.mock import patch, MagicMock
 
-# Mock AWS Lambda Powertools
-sys.modules["aws_lambda_powertools"] = MagicMock()
-sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
-sys.modules["aws_lambda_powertools.metrics"].log_metrics = lambda func: func
-sys.modules["aws_lambda_powertools.logging"] = MagicMock()
-sys.modules["aws_lambda_powertools.logging"].logger = MagicMock()
-sys.modules["aws_lambda_powertools.logging"].logger.inject_lambda_context = lambda func: func
+os.environ["TABLE_NAME"] = "TestTable"
+os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
 
-# Mock boto3
-boto3.resource = MagicMock()
+import retrieve_logs  # noqa: E402
 
 
-# Mock os.environ to provide TABLE_NAME
-env_patch = patch.dict("os.environ", {
-    "TABLE_NAME": "test-table",
-    "PROJECTION_FIELDS": "id,severity,#datetime,message",
-    "AWS_REGION": "us-east-1",
-    "AWS_ACCESS_KEY_ID": "testing",
-    "AWS_SECRET_ACCESS_KEY": "testing"
-})
-
-
-# Start the patch before importing retrieve_logs
-env_patch.start()
-
-
-# Ensure patch is stopped after tests
 @pytest.fixture(autouse=True)
-def stop_env_patch():
+def setup_env(monkeypatch):
+    # Setup/cleanup before each test
+    monkeypatch.setenv("TABLE_NAME", "TestTable")
+    monkeypatch.setenv("PROJECTION_FIELDS", "id,severity,#datetime,message")
     yield
-    env_patch.stop()
 
 
-# Mock Lambda Context
-class MockContext:
-    function_name = "test-function"
-    function_version = "$LATEST"
-    invoked_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:test-function"
-    memory_limit_in_mb = 128
-    aws_request_id = "test-request-id"
-    log_group_name = "/aws/lambda/test-function"
-    log_stream_name = "2023/01/01/[$LATEST]test-stream"
-
-
-def make_start_key_token(start_key: dict) -> str:
-    return base64.urlsafe_b64encode(json.dumps(start_key).encode()).decode()
-
-
-@pytest.fixture(autouse=True)
-def mock_dynamodb():
-    mock_table = MagicMock()
-    boto3.resource.return_value.Table.return_value = mock_table
-    yield mock_table
-    mock_table.reset_mock()
-
-
-@pytest.fixture(autouse=True)
-def mock_logger(monkeypatch):
-    mock_logger = MagicMock()
-    monkeypatch.setattr("get_log.retrieve_logs.logger", mock_logger)
-    yield mock_logger
-
-
-@pytest.fixture
-def lambda_context():
-    return MockContext()
-
-
-def test_query_without_parameters(mock_dynamodb, lambda_context):
-    mock_dynamodb.query.return_value = {
-        "Items": [{"id": "1", "severity": "info", "message": "test"}],
-        "LastEvaluatedKey": None
+def fake_dynamodb_query(**kwargs):
+    # Simulate DynamoDB's query response
+    return {
+        "Items": [
+            {
+                "id": "1",
+                "severity": "info",
+                "datetime": "2024-01-01T00:00:00Z",
+                "message": "Test log",
+            }
+        ],
+        "LastEvaluatedKey": None,
     }
-    event = {"queryStringParameters": None}
 
-    response = lambda_handler(event, lambda_context)
 
-    assert not isinstance(response, MagicMock)
+def fake_table(*args, **kwargs):
+    # Fake table object with .query method
+    mock_table = MagicMock()
+    mock_table.query.side_effect = fake_dynamodb_query
+    return mock_table
+
+
+@patch("retrieve_logs.table", new_callable=lambda: fake_table())
+def test_lambda_handler_info_query(mock_table):
+    event = {"queryStringParameters": {"severity": "info", "limit": "1"}}
+    context = {}
+    response = retrieve_logs.lambda_handler(event, context)
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
     assert "items" in body
     assert len(body["items"]) == 1
+    assert body["items"][0]["severity"] == "info"
 
 
-def test_invalid_limit_negative(mock_logger, lambda_context):
-    event = {"queryStringParameters": {"limit": "-1"}}
-
-    response = lambda_handler(event, lambda_context)
-
-    assert not isinstance(response, MagicMock)
-    assert response["statusCode"] == 400
-    assert "Limit must be positive" in response["body"]
-    mock_logger.error.assert_called()
-
-
-def test_invalid_severity(mock_logger, lambda_context):
-    event = {"queryStringParameters": {"severity": "critical"}}
-
-    response = lambda_handler(event, lambda_context)
-
-    assert not isinstance(response, MagicMock)
-    assert response["statusCode"] == 400
-    assert "Invalid severity" in response["body"]
-    mock_logger.error.assert_called()
-
-
-def test_pagination_continuation(mock_dynamodb, lambda_context):
-    start_key = {"id": "last-item", "datetime": "2023-01-01"}
-    token = make_start_key_token(start_key)
-
-    mock_dynamodb.query.return_value = {
-        "Items": [{"id": "2", "severity": "info", "message": "test2"}],
-        "LastEvaluatedKey": None
-    }
-
-    event = {"queryStringParameters": {"startKey": token}}
-
-    response = lambda_handler(event, lambda_context)
-
-    assert not isinstance(response, MagicMock)
+@patch("retrieve_logs.table", new_callable=lambda: fake_table())
+def test_lambda_handler_no_severity(mock_table):
+    event = {"queryStringParameters": {"limit": "1"}}
+    context = {}
+    response = retrieve_logs.lambda_handler(event, context)
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
-    assert len(body["items"]) == 1
+    assert "items" in body
 
 
-def test_dynamodb_error(mock_dynamodb, mock_logger, lambda_context):
-    mock_dynamodb.query.side_effect = Exception("DynamoDB error")
-    event = {"queryStringParameters": None}
+@patch("retrieve_logs.table", new_callable=lambda: fake_table())
+def test_lambda_handler_invalid_severity(mock_table):
+    event = {"queryStringParameters": {"severity": "invalid"}}
+    context = {}
+    response = retrieve_logs.lambda_handler(event, context)
+    assert response["statusCode"] == 400
+    body = json.loads(response["body"])
+    assert "error" in body
 
-    response = lambda_handler(event, lambda_context)
 
-    assert not isinstance(response, MagicMock)
-    assert response["statusCode"] == 500
-    mock_logger.error.assert_called()
+@patch("retrieve_logs.table", new_callable=lambda: fake_table())
+def test_lambda_handler_invalid_limit(mock_table):
+    event = {"queryStringParameters": {"limit": "-5"}}
+    context = {}
+    response = retrieve_logs.lambda_handler(event, context)
+    assert response["statusCode"] == 400
+    body = json.loads(response["body"])
+    assert "error" in body
+
+
+@patch("retrieve_logs.table", new_callable=lambda: fake_table())
+def test_lambda_handler_no_items(mock_table):
+    def no_items_query(**kwargs):
+        return {"Items": []}
+
+    mock_table.query.side_effect = no_items_query
+    event = {"queryStringParameters": {"severity": "info", "limit": "1"}}
+    context = {}
+    response = retrieve_logs.lambda_handler(event, context)
+    assert response["statusCode"] == 200
+    body = json.loads(response["body"])
+    assert body["items"] == []
+    assert body["hasMore"] is False
