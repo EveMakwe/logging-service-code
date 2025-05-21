@@ -223,6 +223,6 @@ def lambda_handler(event: Dict, context: Any, table=None) -> Dict:
         return build_response(500, {"error": "Database operation failed"})
 
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        logger.error(f"Unexpected error:c{e}", exc_info=True)
         metrics.add_metric(name="SystemErrors", unit=MetricUnit.Count, value=1)
         return build_response(500, {"error": "Internal server error"})
