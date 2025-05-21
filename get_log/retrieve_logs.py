@@ -27,21 +27,31 @@ EXPRESSION_ATTRIBUTE_NAMES = {"#datetime": "datetime"}
 logger = Logger(service="LogQueryService")
 metrics = Metrics(namespace="LogQueryService")
 
-# --- DynamoDB Setup ---
+# --- DynamoDB Helpers ---
 
-TABLE_NAME = os.environ.get("TABLE_NAME")
-if not TABLE_NAME:
-    logger.error("Environment variable TABLE_NAME is required")
-    raise RuntimeError("TABLE_NAME not configured")
 
-dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table(TABLE_NAME)
+def get_dynamodb_resource():
+    # Optionally, pull region from env, config, or default
+    region = os.environ.get("AWS_REGION", "us-west-2")
+    return boto3.resource("dynamodb", region_name=region)
+
+
+def get_table():
+    table_name = os.environ.get("TABLE_NAME")
+    if not table_name:
+        logger.error("Environment variable TABLE_NAME is required")
+        raise RuntimeError("TABLE_NAME not configured")
+    return get_dynamodb_resource().Table(table_name)
 
 
 def validate_projection_fields():
     """Log a warning if projection fields are not part of table schema (key/index fields only)."""
     try:
-        response = dynamodb.meta.client.describe_table(TableName=TABLE_NAME)
+        table_name = os.environ.get("TABLE_NAME")
+        if not table_name:
+            return
+        dynamodb = get_dynamodb_resource()
+        response = dynamodb.meta.client.describe_table(TableName=table_name)
         indexed_fields = {
             attr["AttributeName"] for attr in response["Table"]["AttributeDefinitions"]
         }
@@ -59,7 +69,9 @@ def validate_projection_fields():
         logger.warning(f"Could not validate table schema: {e}")
 
 
-validate_projection_fields()
+# Only validate when running as an actual Lambda or CLI (not on import during tests)
+if os.environ.get("VALIDATE_PROJECTION_FIELDS", "true").lower() == "true":
+    validate_projection_fields()
 
 # --- Helpers ---
 
@@ -92,8 +104,14 @@ def validate_start_key(start_key: Any, severity: Optional[str] = None) -> bool:
 
 
 def execute_query(
-    index_name: str, key_condition, limit: int, start_key: Optional[Dict] = None
+    index_name: str,
+    key_condition,
+    limit: int,
+    start_key: Optional[Dict] = None,
+    table=None,
 ) -> Tuple[list, bool, Optional[str]]:
+    if table is None:
+        table = get_table()
     params = {
         "IndexName": index_name,
         "KeyConditionExpression": key_condition,
@@ -131,7 +149,8 @@ def execute_query(
 
 
 @metrics.log_metrics(capture_cold_start_metric=True)
-def lambda_handler(event: Dict, context: Any) -> Dict:
+def lambda_handler(event: Dict, context: Any, table=None) -> Dict:
+    # The 'table' parameter is for test injection/mocking
     try:
         query_params = event.get("queryStringParameters") or {}
         severity = query_params.get("severity", "").strip().lower()
@@ -172,11 +191,19 @@ def lambda_handler(event: Dict, context: Any) -> Dict:
                     },
                 )
             items, has_more, next_token = execute_query(
-                "severityindex", Key("severity").eq(severity), limit, start_key
+                "severityindex",
+                Key("severity").eq(severity),
+                limit,
+                start_key,
+                table=table,
             )
         else:
             items, has_more, next_token = execute_query(
-                "alldatetimeindex", Key("partition").eq("ALL"), limit, start_key
+                "alldatetimeindex",
+                Key("partition").eq("ALL"),
+                limit,
+                start_key,
+                table=table,
             )
 
         if not items:
