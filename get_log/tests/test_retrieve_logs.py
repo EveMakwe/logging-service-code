@@ -10,7 +10,7 @@ os.environ["POWERTOOLS_METRICS_NAMESPACE"] = "LogQueryService"
 os.environ["POWERTOOLS_SERVICE_NAME"] = "LogQueryService"
 
 # Mock boto3 resource before importing retrieve_logs
-with patch('boto3.resource') as mock_boto3:
+with patch("boto3.resource") as mock_boto3:
     # Create a mock DynamoDB table
     mock_table = MagicMock()
     mock_boto3.return_value.Table.return_value = mock_table
@@ -21,7 +21,9 @@ class LambdaContext:
     def __init__(self):
         self.function_name = "test-function"
         self.function_version = "$LATEST"
-        self.invoked_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:test-function"
+        self.invoked_function_arn = (
+            "arn:aws:lambda:us-east-1:123456789012:function:test-function"
+        )
         self.memory_limit_in_mb = 128
         self.aws_request_id = "test-request-id"
         self.log_group_name = "/aws/lambda/test-function"
@@ -53,7 +55,7 @@ def fake_dynamodb_query(**kwargs):
 
 @pytest.fixture
 def mock_dynamodb():
-    with patch('get_log.retrieve_logs.table') as mock_table:
+    with patch("get_log.retrieve_logs.table") as mock_table:
         mock_table.query.side_effect = fake_dynamodb_query
         yield mock_table
 
@@ -108,4 +110,3 @@ def test_lambda_handler_no_items(mock_dynamodb, lambda_context):
     body = json.loads(response["body"])
     assert body["items"] == []
     assert body["hasMore"] is False
-    
