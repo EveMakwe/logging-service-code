@@ -1,0 +1,116 @@
+name: Lint, Scan, and Test (PR)
+
+on:
+  pull_request:
+    branches: [develop]
+    types:
+      - opened
+      - synchronize
+    paths:
+      - 'lambda/log_entry/**'
+      - 'get_log/**'
+
+jobs:
+  lint-scan-test-log-ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get changed files
+        id: changed-files
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            return files.data.map(file => file.filename).join('\n');
+
+      - name: Check if Log Ingest files changed
+        id: check-ingest-changes
+        run: |
+          if echo "${{ steps.changed-files.outputs.result }}" | grep -q "lambda/log_entry/"; then
+            echo "Log Ingest files changed, running checks."
+            echo "run_checks=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes in Log Ingest, skipping checks."
+            echo "run_checks=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        if: steps.check-ingest-changes.outputs.run_checks == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies for lint/test/scan
+        if: steps.check-ingest-changes.outputs.run_checks == 'true'
+        run: |
+          pip install -r lambda/log_entry/requirements.txt
+          pip install pytest pytest-cov flake8 bandit
+
+      - name: Lint Log Ingest Lambda code
+        if: steps.check-ingest-changes.outputs.run_checks == 'true'
+        run: flake8 lambda/log_entry/
+
+      - name: Security scan Log Ingest Lambda code
+        if: steps.check-ingest-changes.outputs.run_checks == 'true'
+        run: bandit -r lambda/log_entry/ --exclude lambda/log_entry/tests/
+
+      - name: Run unit tests for Log Ingest Lambda
+        if: steps.check-ingest-changes.outputs.run_checks == 'true'
+        run: PYTHONPATH=. pytest lambda/log_entry/
+
+  lint-scan-test-log-retrieve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get changed files
+        id: changed-files
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            return files.data.map(file => file.filename).join('\n');
+
+      - name: Check if Log Retrieve files changed
+        id: check-retrieve-changes
+        run: |
+          if echo "${{ steps.changed-files.outputs.result }}" | grep -q "get_log/"; then
+            echo "Log Retrieve files changed, running checks."
+            echo "run_checks=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes in Log Retrieve, skipping checks."
+            echo "run_checks=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies for lint/test/scan
+        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+        run: |
+          pip install -r get_log/requirements.txt
+          pip install pytest pytest-cov flake8 bandit
+
+      - name: Lint Log Retrieve Lambda code
+        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+        run: flake8 get_log/
+
+      - name: Security scan Log Retrieve Lambda code
+        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+        run: bandit -r get_log/ --exclude get_log/tests/
+
+      - name: Run unit tests for Log Retrieve Lambda
+        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+        run: PYTHONPATH=. pytest get_log/

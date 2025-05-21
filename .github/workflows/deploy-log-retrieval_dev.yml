@@ -2,9 +2,11 @@
 name: Deploy Retrieve Logs Lambda (Dev)
 
 on:
-  push:
-    branches: [workflows]
-  # workflow_dispatch:
+  pull_request:
+    branches: [develop]
+    types:
+      - closed
+  workflow_dispatch:
 
 env:
   CHANNEL_ID: "C08T7JCKXEY"
@@ -12,36 +14,16 @@ env:
   LAMBDA_SERVICE: "Retrieve-logs-lambda"
 
 jobs:
-  test-lint-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.12
-
-      - name: Install dependencies for lint/test/scan
-        run: |
-          pip install -r get_log/requirements.txt
-          pip install pytest pytest-cov flake8 bandit
-
-      - name: Lint Lambda code
-        run: flake8 get_log/
-
-      - name: Security scan Lambda code
-        run: bandit -r get_log/ --exclude get_log/tests/
-
-      - name: Run unit tests
-        run: PYTHONPATH=. pytest get_log/
-
   deploy:
-    runs-on: ubuntu-latest
-    needs: test-lint-scan
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'deploy_retrieve_logs')
     permissions:
       id-token: write
       contents: read
+
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -100,3 +82,26 @@ jobs:
 
       - name: Print event JSON
         run: echo "${{ toJson(github.event) }}"
+
+
+
+      # -----------------------------------------------------------
+      # Optional: Notify on PR with a comment when the workflow finishes.
+      # To use, just remove the '#' from these lines.
+      # This will add a comment to the pull request so anyone watching
+      # (with email notifications enabled) gets notified.
+      # You can mention specific users or teams by changing '@your-team' below.
+      # -----------------------------------------------------------
+      # - name: Comment on PR for GitHub notifications
+      #   if: always()  # Runs even if the job fails
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       github.rest.issues.createComment({
+      #         issue_number: context.payload.pull_request.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         body: '🚀 Deployment finished for `${{ env.LAMBDA_SERVICE }}` in `${{ env.ENV }}`!\n\nCheck the details here: [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\ncc: @your-team'
+      #       })
+
+
