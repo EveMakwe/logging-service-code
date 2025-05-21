@@ -19,13 +19,13 @@ resource "aws_lambda_function" "ingest_logs" {
 
 
 
-resource "aws_lambda_alias" "ingest_logs_alias" {
-  name             = "${var.env}-ingest-logs-alias"
-  description      = "An alias for the version of lambda"
-  function_name    = "${var.env}-ingest-logs"
-  function_version = "$LATEST"
-  depends_on       = [aws_lambda_function.ingest_logs]
-}
+# resource "aws_lambda_alias" "ingest_logs_alias" {
+#   name             = "${var.env}-ingest-logs-alias"
+#   description      = "An alias for the version of lambda"
+#   function_name    = "${var.env}-ingest-logs"
+#   function_version = "$LATEST"
+#   depends_on       = [aws_lambda_function.ingest_logs]
+# }
 
 
 # ==========Lambda function for retrieving logs========================
@@ -56,13 +56,13 @@ resource "aws_lambda_function" "retrieve_logs" {
 
 
 
-resource "aws_lambda_alias" "retrieve_logs_alias" {
-  name             = "${var.env}-retrieve-logs-alias"
-  description      = "An alias for the version of lambda"
-  function_name    = "${var.env}-retrieve-logs"
-  function_version = "$LATEST"
-  depends_on       = [aws_lambda_function.retrieve_logs]
-}
+# resource "aws_lambda_alias" "retrieve_logs_alias" {
+#   name             = "${var.env}-retrieve-logs-alias"
+#   description      = "An alias for the version of lambda"
+#   function_name    = "${var.env}-retrieve-logs"
+#   function_version = "$LATEST"
+#   depends_on       = [aws_lambda_function.retrieve_logs]
+# }
 
 
 
