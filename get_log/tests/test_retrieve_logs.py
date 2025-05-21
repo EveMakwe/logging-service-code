@@ -1,7 +1,7 @@
 import os
 import pytest
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 # Set environment variables before importing the module
 os.environ["TABLE_NAME"] = "TestTable"
@@ -9,9 +9,11 @@ os.environ["PROJECTION_FIELDS"] = "id,severity,#datetime,message"
 os.environ["POWERTOOLS_METRICS_NAMESPACE"] = "LogQueryService"
 os.environ["POWERTOOLS_SERVICE_NAME"] = "LogQueryService"
 os.environ["AWS_REGION"] = "us-west-2"
+os.environ["VALIDATE_PROJECTION_FIELDS"] = "false"  # Disable validation during tests
 
-# Import the module after setting up environment
-import get_log.retrieve_logs as retrieve_logs  # noqa: E402
+# Mock the validate_projection_fields function before importing the module
+with patch("get_log.retrieve_logs.validate_projection_fields"):
+    import get_log.retrieve_logs as retrieve_logs  # noqa: E402
 
 
 class LambdaContext:
@@ -34,6 +36,7 @@ def setup_env(monkeypatch):
     monkeypatch.setenv("POWERTOOLS_METRICS_NAMESPACE", "LogQueryService")
     monkeypatch.setenv("POWERTOOLS_SERVICE_NAME", "LogQueryService")
     monkeypatch.setenv("AWS_REGION", "us-west-2")
+    monkeypatch.setenv("VALIDATE_PROJECTION_FIELDS", "false")
     yield
 
 
