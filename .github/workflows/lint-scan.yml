@@ -1,0 +1,128 @@
+name: Lint, Scan, and Test (PR)
+
+on:
+  pull_request_target:
+    branches: [develop]
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  lint-scan-test-getlog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get changed files
+        id: changed-files
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            return files.data.map(file => file.filename).join('\n');
+
+      - name: Check if get_log files changed
+        id: check-getlog-changes
+        run: |
+          if echo "${{ steps.changed-files.outputs.result }}" | grep -q "^get_log/"; then
+            echo "get_log files changed, running checks."
+            echo "run_checks=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes in get_log, skipping checks."
+            echo "run_checks=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies for get_log
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
+        run: |
+          pip install -r get_log/requirements.txt
+          pip install pytest pytest-cov flake8 bandit
+
+      - name: Lint get_log
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
+        run: flake8 get_log/
+
+      - name: Security scan get_log
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
+        run: bandit -r get_log/ --exclude get_log/tests/
+
+      - name: Run unit tests for get_log
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
+        run: PYTHONPATH=. pytest get_log/
+
+  lint-scan-test-writelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get changed files
+        id: changed-files
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            return files.data.map(file => file.filename).join('\n');
+
+      - name: Check if write_log files changed
+        id: check-writelog-changes
+        run: |
+          if echo "${{ steps.changed-files.outputs.result }}" | grep -q "^write_log/"; then
+            echo "write_log files changed, running checks."
+            echo "run_checks=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes in write_log, skipping checks."
+            echo "run_checks=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies for write_log
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        run: |
+          pip install -r write_log/requirements.txt
+          pip install pytest pytest-cov flake8 bandit
+
+      - name: Lint write_log
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        run: flake8 write_log/
+
+      - name: Security scan write_log
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        run: bandit -r write_log/ --exclude write_log/tests/
+
+      - name: Run unit tests for write_log
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        run: PYTHONPATH=. pytest write_log/
