@@ -86,9 +86,7 @@ def build_response(status_code: int, body: Dict) -> Dict:
 
 
 
-
-
-_start_key(start_key: Dict) -> str:
+def encode_start_key(start_key: Dict) -> str:
     return base64.urlsafe_b64encode(json.dumps(start_key).encode()).decode()
 
 

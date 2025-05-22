@@ -6,17 +6,21 @@ on:
     types:
       - opened
       - synchronize
-    paths:
-      - 'lambda/log_entry/**'
-      - 'get_log/**'
-
-permissions:
-  pull-requests: read
+      - reopened
 
 jobs:
-  lint-scan-test-log-ingest:
+  lint-scan-test-getlog:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
     steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
       - name: Get changed files
         id: changed-files
         uses: actions/github-script@v6
@@ -29,96 +33,96 @@ jobs:
             });
             return files.data.map(file => file.filename).join('\n');
 
-      - name: Check if Log Ingest files changed
-        id: check-ingest-changes
+      - name: Check if get_log files changed
+        id: check-getlog-changes
         run: |
-          if echo "${{ steps.changed-files.outputs.result }}" | grep -q "lambda/log_entry/"; then
-            echo "Log Ingest files changed, running checks."
+          if echo "${{ steps.changed-files.outputs.result }}" | grep -q "^get_log/"; then
+            echo "get_log files changed, running checks."
             echo "run_checks=true" >> $GITHUB_OUTPUT
           else
-            echo "No changes in Log Ingest, skipping checks."
+            echo "No changes in get_log, skipping checks."
             echo "run_checks=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout code
-        if: steps.check-ingest-changes.outputs.run_checks == 'true'
-        uses: actions/checkout@v4
-
       - name: Set up Python
-        if: steps.check-ingest-changes.outputs.run_checks == 'true'
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: 3.12
 
-      - name: Install dependencies for lint/test/scan
-        if: steps.check-ingest-changes.outputs.run_checks == 'true'
-        run: |
-          pip install -r lambda/log_entry/requirements.txt
-          pip install pytest pytest-cov flake8 bandit
-
-      - name: Lint Log Ingest Lambda code
-        if: steps.check-ingest-changes.outputs.run_checks == 'true'
-        run: flake8 lambda/log_entry/
-
-      - name: Security scan Log Ingest Lambda code
-        if: steps.check-ingest-changes.outputs.run_checks == 'true'
-        run: bandit -r lambda/log_entry/ --exclude lambda/log_entry/tests/
-
-      - name: Run unit tests for Log Ingest Lambda
-        if: steps.check-ingest-changes.outputs.run_checks == 'true'
-        run: PYTHONPATH=. pytest lambda/log_entry/
-
-  lint-scan-test-log-retrieve:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get changed files
-        id: changed-files
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const files = await github.rest.pulls.listFiles({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number
-            });
-            return files.data.map(file => file.filename).join('\n');
-
-      - name: Check if Log Retrieve files changed
-        id: check-retrieve-changes
-        run: |
-          if echo "${{ steps.changed-files.outputs.result }}" | grep -q "get_log/"; then
-            echo "Log Retrieve files changed, running checks."
-            echo "run_checks=true" >> $GITHUB_OUTPUT
-          else
-            echo "No changes in Log Retrieve, skipping checks."
-            echo "run_checks=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Checkout code
-        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.12
-
-      - name: Install dependencies for lint/test/scan
-        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+      - name: Install dependencies for get_log
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
         run: |
           pip install -r get_log/requirements.txt
           pip install pytest pytest-cov flake8 bandit
 
-      - name: Lint Log Retrieve Lambda code
-        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+      - name: Lint get_log
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
         run: flake8 get_log/
 
-      - name: Security scan Log Retrieve Lambda code
-        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+      - name: Security scan get_log
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
         run: bandit -r get_log/ --exclude get_log/tests/
 
-      - name: Run unit tests for Log Retrieve Lambda
-        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+      - name: Run unit tests for get_log
+        if: steps.check-getlog-changes.outputs.run_checks == 'true'
         run: PYTHONPATH=. pytest get_log/
 
+  lint-scan-test-writelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get changed files
+        id: changed-files
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            return files.data.map(file => file.filename).join('\n');
+
+      - name: Check if write_log files changed
+        id: check-writelog-changes
+        run: |
+          if echo "${{ steps.changed-files.outputs.result }}" | grep -q "^write_log/"; then
+            echo "write_log files changed, running checks."
+            echo "run_checks=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes in write_log, skipping checks."
+            echo "run_checks=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies for write_log
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        run: |
+          pip install -r write_log/requirements.txt
+          pip install pytest pytest-cov flake8 bandit
+
+      - name: Lint write_log
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        run: flake8 write_log/
+
+      - name: Security scan write_log
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        run: bandit -r write_log/ --exclude write_log/tests/
+
+      - name: Run unit tests for write_log
+        if: steps.check-writelog-changes.outputs.run_checks == 'true'
+        run: PYTHONPATH=. pytest write_log/
