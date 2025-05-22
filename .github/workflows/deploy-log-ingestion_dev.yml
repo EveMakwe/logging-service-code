@@ -1,10 +1,10 @@
 name: Deploy Ingest Logs Lambda (Dev)
 
 on:
-  push:
+  pull_request:
     branches: [develop]
-    # types:
-    #   - closed
+    types:
+      - closed
 
 env:
   CHANNEL_ID: "C08T7JCKXEY"

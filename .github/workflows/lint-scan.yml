@@ -121,3 +121,4 @@ jobs:
       - name: Run unit tests for Log Retrieve Lambda
         if: steps.check-retrieve-changes.outputs.run_checks == 'true'
         run: PYTHONPATH=. pytest get_log/
+
