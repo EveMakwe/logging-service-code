@@ -17,7 +17,7 @@ resource "aws_iam_role" "github_oidc_role" {
       Action = "sts:AssumeRoleWithWebIdentity",
       Condition = {
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:EveMakwe/logging-service:ref:refs/heads/*"
+          "token.actions.githubusercontent.com:sub" = "repo:EveMakwe/logging-service:*"
         }
       }
     }]
