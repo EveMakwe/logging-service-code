@@ -13,11 +13,12 @@ env:
 
 jobs:
   deploy:
-    if: >
+    if: 
       github.event.pull_request.merged == true &&
       contains(join(github.event.pull_request.labels.*.name, ','), 'deploy_ingest_logs')
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: read
       pull-requests: read
 
