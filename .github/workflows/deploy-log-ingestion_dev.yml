@@ -5,56 +5,81 @@ on:
     branches: [develop]
     types:
       - closed
-  workflow_dispatch:
 
 env:
   CHANNEL_ID: "C08T7JCKXEY"
   ENV: "DEV"
-  LAMBDA_SERVICE: "Ingest-logs-Lambda"
+  LAMBDA_SERVICE: "Ingest-logs-lambda"
 
 jobs:
   deploy:
-    if: |
+    if: >
       github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'deploy_ingest_logs')
+      contains(join(github.event.pull_request.labels.*.name, ','), 'deploy_log_ingest')
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
+      pull-requests: read
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Fetch the last two commits to compare
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          git diff --name-only HEAD^ HEAD > changed_files.txt
+          cat changed_files.txt
+          echo "files=$(cat changed_files.txt)" >> $GITHUB_OUTPUT
+
+      - name: Check if Log Ingest files changed
+        id: check-ingest-changes
+        run: |
+          if grep -q "lambda/log_entry/" changed_files.txt; then
+            echo "Log Ingest files changed, proceeding with deployment."
+            echo "run_deployment=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes in Log Ingest, skipping deployment."
+            echo "run_deployment=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up Python
+        if: steps.check-ingest-changes.outputs.run_deployment == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: 3.12
 
       - name: Configure AWS credentials via OIDC
+        if: steps.check-ingest-changes.outputs.run_deployment == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.ROLE_NAME_GITHUB }}
           aws-region: us-east-1
 
       - name: Install Lambda dependencies
+        if: steps.check-ingest-changes.outputs.run_deployment == 'true'
         run: |
           python -m pip install --upgrade pip
-          pip install --target ./package -r write_log/requirements.txt
+          pip install --target ./package -r lambda/log_entry/requirements.txt
 
       - name: Package Lambda function
+        if: steps.check-ingest-changes.outputs.run_deployment == 'true'
         run: |
           cd package
-          zip -r ../ingest_logs.zip .
+          zip -r ../log_ingest.zip .
           cd ..
-          zip -j ingest_logs.zip write_log/*.py
+          zip -j log_ingest.zip lambda/log_entry/*.py
 
       - name: Deploy Lambda function
+        if: steps.check-ingest-changes.outputs.run_deployment == 'true'
         run: |
           aws lambda update-function-code \
-            --function-name dev-ingest-logs \
-            --zip-file fileb://ingest_logs.zip
+            --function-name dev-log-ingest \
+            --zip-file fileb://log_ingest.zip
 
       - name: Slack Notification (Success)
-        if: success()
+        if: steps.check-ingest-changes.outputs.run_deployment == 'true' && success()
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -62,11 +87,11 @@ jobs:
           SLACK_TITLE: Lambda Deployment
           SLACK_MESSAGE: 'Deployment success in ${{ env.ENV }} for ${{ env.LAMBDA_SERVICE }}'
           SLACK_COLOR: good
-          SLACK_FOOTER: '${{ github.repository }} | ${{ github.ref }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>'
+          SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
           SLACK_ICON_EMOJI: ':rocket:'
 
       - name: Slack Notification (Failure)
-        if: failure()
+        if: steps.check-ingest-changes.outputs.run_deployment == 'true' && failure()
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -74,32 +99,15 @@ jobs:
           SLACK_TITLE: Lambda Deployment
           SLACK_MESSAGE: 'Deployment error in ${{ env.ENV }} for ${{ env.LAMBDA_SERVICE }}'
           SLACK_COLOR: danger
-          SLACK_FOOTER: '${{ github.repository }} | ${{ github.ref }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>'
+          SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
           SLACK_ICON_EMOJI: ':x:'
 
       - name: Print event JSON
         run: echo "${{ toJson(github.event) }}"
 
-
-
-
-
-
-
-
-
-
-
-
-          # -----------------------------------------------------------
-      # Optional: Notify on PR with a comment when the workflow finishes.
-      # To use, just remove the '#' from these lines.
-      # This will add a comment to the pull request so anyone watching
-      # (with email notifications enabled) gets notified.
-      # You can mention specific users or teams by changing '@your-team' below.
-      # -----------------------------------------------------------
+      # Optional: Comment on PR for GitHub notifications
       # - name: Comment on PR for GitHub notifications
-      #   if: always()  # Runs even if the job fails
+      #   if: always()
       #   uses: actions/github-script@v7
       #   with:
       #     script: |
@@ -107,5 +115,5 @@ jobs:
       #         issue_number: context.payload.pull_request.number,
       #         owner: context.repo.owner,
       #         repo: context.repo.repo,
-      #         body: '🚀 Deployment finished for `${{ env.LAMBDA_SERVICE }}` in `${{ env.ENV }}`!\n\nCheck the details here: [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\ncc: @your-team'
+      #         body: '🚀 Deployment finished for `${{ env.LAMBDA_SERVICE }}` in `${{ env.ENV }}`!\n\nCheck the details here: [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})'
       #       })

@@ -1,7 +1,7 @@
 name: Lint, Scan, and Test (PR)
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [develop]
     types:
       - opened
@@ -10,13 +10,13 @@ on:
       - 'lambda/log_entry/**'
       - 'get_log/**'
 
+permissions:
+  pull-requests: read
+
 jobs:
   lint-scan-test-log-ingest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-
       - name: Get changed files
         id: changed-files
         uses: actions/github-script@v6
@@ -39,6 +39,10 @@ jobs:
             echo "No changes in Log Ingest, skipping checks."
             echo "run_checks=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Checkout code
+        if: steps.check-ingest-changes.outputs.run_checks == 'true'
+        uses: actions/checkout@v4
 
       - name: Set up Python
         if: steps.check-ingest-changes.outputs.run_checks == 'true'
@@ -67,8 +71,6 @@ jobs:
   lint-scan-test-log-retrieve:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - name: Get changed files
         id: changed-files
         uses: actions/github-script@v6
@@ -91,6 +93,10 @@ jobs:
             echo "No changes in Log Retrieve, skipping checks."
             echo "run_checks=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Checkout code
+        if: steps.check-retrieve-changes.outputs.run_checks == 'true'
+        uses: actions/checkout@v4
 
       - name: Set up Python
         if: steps.check-retrieve-changes.outputs.run_checks == 'true'
