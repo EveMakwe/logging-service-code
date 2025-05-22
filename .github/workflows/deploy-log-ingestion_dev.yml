@@ -13,7 +13,7 @@ env:
 
 jobs:
   deploy:
-    if: 
+    if: >
       github.event.pull_request.merged == true &&
       contains(join(github.event.pull_request.labels.*.name, ','), 'deploy_ingest_logs')
     runs-on: ubuntu-latest
@@ -32,7 +32,8 @@ jobs:
         run: |
           git diff --name-only HEAD^ HEAD > changed_files.txt
           cat changed_files.txt
-          echo "files=$(cat changed_files.txt)" >> $GITHUB_OUTPUT
+          files=$(paste -sd "," changed_files.txt)
+          echo "files=$files" >> $GITHUB_OUTPUT
 
       - name: Check if Log Ingest files changed
         id: check-ingest-changes
@@ -118,3 +119,4 @@ jobs:
       #         repo: context.repo.repo,
       #         body: '🚀 Deployment finished for `${{ env.LAMBDA_SERVICE }}` in `${{ env.ENV }}`!\n\nCheck the details here: [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})'
       #       })
+
