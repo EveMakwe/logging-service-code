@@ -16,6 +16,38 @@ Architecture Components
 - **All infrastructure** managed via Terraform in `log-service-terraform/`
 - **CI/CD** via GitHub Actions (with security checks and OIDC for AWS auth)
 
+## Architecture
+
+
+```mermaid
+flowchart LR
+    A[Cognito Authenticated User]:::client
+    B[Cognito User Pool]:::cognito
+    C[API Gateway /logs]:::apigateway
+    D[Lambda Log Ingest]:::lambda
+    E[Lambda Log Retrieve]:::lambda
+    F[DynamoDB Table]:::dynamodb
+    G[KMS Key]:::kms
+
+    A -->|Authenticate| B
+    B -->|Return JWT Token| A
+    A -->|JWT Token, HTTPS| C
+    C -->|Validate JWT| B
+    C -->|POST /logs| D
+    C -->|GET /logs| E
+    D -->|PutItem| F
+    E -->|Query Last 100| F
+    F -->|Encrypted with| G
+
+    classDef client fill:#ECEFF1,stroke:#455A64,stroke-width:2px
+    classDef cognito fill:#FF6F61,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef apigateway fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef lambda fill:#00A1E4,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef dynamodb fill:#4051B5,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef kms fill:#D13212,stroke:#232F3E,stroke-width:2px,color:#fff
+```
+
+
 ## Prerequisites
 
 - **Python 3.12+**: Required for packaging Lambda functions.
@@ -62,6 +94,8 @@ Deploy the required AWS resources using Terraform.
        --client-id $COGNITO_CLIENT_ID \
        --auth-parameters USERNAME=$USERNAME,PASSWORD=$INITIAL_PASSWORD)
 
+       # Extract session token
+   
        SESSION=$(echo $AUTH | jq -r .Session)
 
        # Set new password
@@ -78,7 +112,12 @@ Deploy the required AWS resources using Terraform.
        --auth-parameters USERNAME=$USERNAME,PASSWORD=YourNewSecurePassword)
        ID_TOKEN=$(echo $AUTH | jq -r .AuthenticationResult.IdToken)
 
-   Testing the Service
+   Note: Replace $COGNITO_CLIENT_ID, $USERNAME, and $TEMP_PASSWORD with the appropriate values. Use a secure password meeting Cognito’s requirements (e.g., minimum length, special characters).
+
+6. Test API Endpoints
+Use the JWT token (ID_TOKEN) obtained after authentication to test the API.
+
+
    
    Store a Log Entry
 
@@ -92,10 +131,19 @@ Deploy the required AWS resources using Terraform.
        curl -X GET "$API_URL/logs" \
        -H "Authorization: $ID_TOKEN"
 
+   Troubleshooting
+Authentication Errors: Ensure the $COGNITO_CLIENT_ID and credentials are correct. Verify the user exists in the Cognito User Pool.
+
+API Errors: Confirm the $API_URL is correct and the JWT token is valid (not expired).
+
+Terraform Issues: Ensure AWS credentials have sufficient permissions.
 
 
 
 
+
+
+## Architecture
 
 
 ```mermaid
@@ -126,8 +174,7 @@ flowchart LR
     classDef kms fill:#D13212,stroke:#232F3E,stroke-width:2px,color:#fff
 
 
-```mermaid
-ijpkj
+
 
 
 
