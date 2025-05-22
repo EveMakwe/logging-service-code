@@ -55,13 +55,22 @@ flowchart LR
 - **AWS CLI**: Configured with appropriate permissions.
 - **Terraform**: For infrastructure deployment.
 
+  1. Clone the Repository
+Clone the repository to your local machine or CI/CD environment. The repository includes GitHub Actions workflows in .github/workflows (deploy-log-ingestion_dev.yml, deploy-log-retrieval_dev.yml, lint-scan.yml) that can be used to update the Lambda functions if needed.
+
+         # Clone the repository
+         git clone https://github.com/<your-username>/<repo-name>.git
+         cd <your-repo-name>
+
+
+
 Deployment Instructions
-1. Configure AWS Credentials
+2. Configure AWS Credentials
 Ensure your AWS CLI is configured with credentials that have sufficient permissions (e.g., AdministratorAccess or specific IAM roles for Lambda, API Gateway, DynamoDB, Cognito, and KMS).
 
        aws configure
 
-2. Package Lambda Functions
+3. Package Lambda Functions
 Package the Lambda functions for log ingestion and retrieval.
 
 
@@ -72,7 +81,7 @@ Package the Lambda functions for log ingestion and retrieval.
        zip ../log-service-terraform/retrieve_logs.zip retrieve_logs.py
        cd ..
 
-3. Deploy Infrastructure with Terraform
+4. Deploy Infrastructure with Terraform
 Deploy the required AWS resources using Terraform.
 
        cd log-service-terraform
@@ -80,13 +89,13 @@ Deploy the required AWS resources using Terraform.
        terraform apply --var-file env/dev.tfvars
    Note the outputs for API URL and Cognito IDs.
 
-4. Retrieve Initial Cognito Password
+5. Retrieve Initial Cognito Password
    
        aws secretsmanager get-secret-value --secret-id YOUR_SECRET_NAME
 
    Replace YOUR_SECRET_NAME with your actual secret name from Terraform outputs
 
-5. First Login & Password Change
+6. First Login & Password Change
 
        # Start authentication (will require password change)
        AUTH=$(aws cognito-idp initiate-auth \
@@ -114,7 +123,7 @@ Deploy the required AWS resources using Terraform.
 
    Note: Replace $COGNITO_CLIENT_ID, $USERNAME, and $TEMP_PASSWORD with the appropriate values. Use a secure password meeting Cognito’s requirements (e.g., minimum length, special characters).
 
-6. Test API Endpoints
+7. Test API Endpoints
 Use the JWT token (ID_TOKEN) obtained after authentication to test the API.
 
 
@@ -137,6 +146,31 @@ Authentication Errors: Ensure the $COGNITO_CLIENT_ID and credentials are correct
 API Errors: Confirm the $API_URL is correct and the JWT token is valid (not expired).
 
 Terraform Issues: Ensure AWS credentials have sufficient permissions.
+
+
+EXTRA 
+
+8. Update Lambda Functions with GitHub Actions
+The repository includes GitHub Actions workflows in .github/workflows (deploy-log-ingestion_dev.yml, deploy-log-retrieval_dev.yml) to update the Lambda functions if needed (e.g., after modifying ingest_logs.py or retrieve_logs.py). These workflows are triggered when a pull request with the label deploy_log_ingest or deploy_log_retrieval is merged into the develop branch.
+Steps to Update Lambda Functions:
+Create a pull request to the develop branch with changes to write_log/ingest_logs.py or get_log/retrieve_logs.py.
+
+Add the label deploy_log_ingest (for dev-log-ingest) or deploy_log_retrieval (for dev-log-retrieval) to the pull request.
+
+Merge the pull request to trigger the appropriate workflow.
+
+Monitor the deployment in the Actions tab of your GitHub repository. Slack notifications will be sent on success or failure
+
+Notes:
+Replace us-east-1 in the workflow with the AWS region where your Lambda functions are deployed.
+
+Ensure :${{ secrets.AWS_ACCOUNT_ID }} and {{ secrets.ROLE_NAME_GITHUB }} are defined in github secrets
+
+
+
+
+
+
 
 
 
