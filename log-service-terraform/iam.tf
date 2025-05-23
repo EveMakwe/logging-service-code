@@ -57,7 +57,7 @@ resource "aws_iam_policy" "ingest_logs_policy" {
           "logs:PutLogEvents",
           "logs:DescribeLogGroups"
         ],
-        Resource = "${aws_cloudwatch_log_group.ingest_logs_group.arn}:*"
+        Resource = "${aws_cloudwatch_log_group.ingest_logs_group.arn}"
       }
     ]
   })
@@ -123,7 +123,7 @@ resource "aws_iam_policy" "retrieve_log_policy" {
           "logs:PutLogEvents",
           "logs:DescribeLogGroups"
         ],
-        Resource = "${aws_cloudwatch_log_group.retrieve_log_group.arn}:*"
+        Resource = "${aws_cloudwatch_log_group.retrieve_log_group.arn}"
       }
 
     ]
