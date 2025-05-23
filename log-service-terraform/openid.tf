@@ -41,7 +41,7 @@ resource "aws_iam_role_policy" "github_policy" {
           "logs:PutLogEvents"
         ],
         Resource = [
-          
+
           "${var.env}-ingest-logs}",
           "${var.env}-retrieve-logs"
 
