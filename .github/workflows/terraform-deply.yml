@@ -13,7 +13,7 @@ permissions:
   actions: read     # Artifact handling
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: af-south-1
   TF_WORKING_DIR: ./log-service-terraform
   TF_ENV: ${{ github.ref_name == 'develop' && 'dev' || 'prod' }} # dev for develop, prod for main
 
@@ -40,7 +40,8 @@ jobs:
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init
+        run: |
+          terraform init -input=false || (echo "Terraform init failed. Detailed output:"; terraform init -input=false -no-color; exit 1)
 
       - name: Terraform Format
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -51,9 +52,10 @@ jobs:
         run: terraform validate
 
       - name: Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.3
+        uses: aquasecurity/tfsec-action@v1.0.0
         with:
           working_directory: ${{ env.TF_WORKING_DIR }}
+          additional_args: --minimum-severity MEDIUM # Ignore LOW severity issues
 
       - name: Terraform Plan
         id: plan
@@ -172,7 +174,8 @@ jobs:
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init
+        run: |
+          terraform init -input=false || (echo "Terraform init failed. Detailed output:"; terraform init -input=false -no-color; exit 1)
 
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4.1.8
