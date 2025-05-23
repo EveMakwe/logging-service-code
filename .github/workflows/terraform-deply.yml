@@ -13,7 +13,7 @@ permissions:
   actions: read     # Artifact handling
 
 env:
-  AWS_REGION: af-south-1
+  AWS_REGION: us-east-1
   TF_WORKING_DIR: ./log-service-terraform
   TF_ENV: ${{ github.ref_name == 'develop' && 'dev' || 'prod' }} # dev for develop, prod for main
 
