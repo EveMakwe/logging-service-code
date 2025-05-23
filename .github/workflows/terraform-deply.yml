@@ -113,7 +113,7 @@ jobs:
         if: steps.check-plan.outputs.unsafe_changes == 'true'
         uses: rtCamp/action-slack-notify@v2.3.0
         env:
-          SLACK_WEBHOOK: ${{ secrets.LACK_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
           SLACK_USERNAME: TerraformBot
           SLACK_TITLE: '⚠️ UNSAFE Terraform Plan Detected'
           SLACK_MESSAGE: |
@@ -130,7 +130,7 @@ jobs:
         if: failure()
         uses: rtCamp/action-slack-notify@v2.3.0
         env:
-          SLACK_WEBHOOK: ${{ secrets.LACK_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
           SLACK_USERNAME: TerraformBot
           SLACK_TITLE: Terraform Validate & Plan Failure (${{ env.TF_ENV }})
           SLACK_MESSAGE: |
@@ -188,10 +188,11 @@ jobs:
         if: failure()
         uses: rtCamp/action-slack-notify@v2.3.0
         env:
-          SLACK_WEBHOOK: ${{ secrets.LACK_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
           SLACK_USERNAME: TerraformBot
           SLACK_TITLE: Terraform Apply Failure (${{ env.TF_ENV }})
-          SLACK_MESSAGE: Failure in Apply for ${{ github.repository }} on ${{ github.ref_name }} (environment: ${{ env.TF_ENV }}).
+          SLACK_MESSAGE: |
+            Failure in Apply for ${{ github.repository }} on ${{ github.ref_name }} (environment: ${{ env.TF_ENV }}).
           SLACK_COLOR: danger
           SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref_name }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
           SLACK_ICON_EMOJI: ':x:'
