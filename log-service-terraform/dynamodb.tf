@@ -41,6 +41,9 @@ resource "aws_dynamodb_table" "log_table" {
     non_key_attributes = ["id", "severity", "message"]
   }
 
+  point_in_time_recovery {
+    enabled = true # Add this
+  }
 
   # =============Enable encryption at rest with KMS ====================
   server_side_encryption {
@@ -48,3 +51,4 @@ resource "aws_dynamodb_table" "log_table" {
     kms_key_arn = aws_kms_key.logs_key.arn
   }
 }
+
