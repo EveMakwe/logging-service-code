@@ -84,6 +84,12 @@ jobs:
             echo "unsafe_changes=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Decode Check Plan Output
+        id: decode-plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "decoded_check_plan_output=$(base64 -d check_plan_output.txt)" >> $GITHUB_OUTPUT
+
       - name: Post Plan to PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7.0.1
@@ -91,7 +97,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const planOutput = Buffer.from(process.env.plan_output, 'base64').toString('utf-8');
-            const checkPlanOutput = Buffer.from(process.env.check_plan_output, 'base64').toString('utf-8');
+            const checkPlanOutput = process.env.decoded_check_plan_output || 'No safety check output available.';
             const body = `### Terraform Plan (${process.env.TF_ENV})\n\`\`\`terraform\n${planOutput}\n\`\`\`\n### Plan Safety Check\n\`\`\`\n${checkPlanOutput}\n\`\`\`\n---\n⚠️ **DO NOT APPLY without explicit human review and written signoff in this PR!**`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -119,7 +125,7 @@ jobs:
           SLACK_MESSAGE: |
             ⚠️ *UNSAFE changes detected in Validate & Plan job for ${{ github.repository }} on branch ${{ github.ref_name }} (environment: ${{ env.TF_ENV }})!*
             > *Review the plan output carefully. The following destructive or risky actions are detected:*
-            ${{ steps.check-plan.outputs.check_plan_output && join(fromBase64(steps.check-plan.outputs.check_plan_output), '\n') || 'No safety check output available.' }}
+            ${{ steps.decode-plan.outputs.decoded_check_plan_output || 'No safety check output available.' }}
             ---
             🚨 *DO NOT APPLY without explicit human review and signoff!*
           SLACK_COLOR: warning
@@ -136,7 +142,7 @@ jobs:
           SLACK_MESSAGE: |
             Failure in Validate & Plan for ${{ github.repository }} on ${{ github.ref_name }} (environment: ${{ env.TF_ENV }}).
             Safety Check Output:
-            ${{ steps.check-plan.outputs.check_plan_output && join(fromBase64(steps.check-plan.outputs.check_plan_output), '\n') || 'No output available.' }}
+            ${{ steps.decode-plan.outputs.decoded_check_plan_output || 'No output available.' }}
           SLACK_COLOR: danger
           SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref_name }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
           SLACK_ICON_EMOJI: ':x:'
