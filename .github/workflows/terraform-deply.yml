@@ -71,7 +71,9 @@ jobs:
             exit 1
           fi
           terraform plan -no-color -out=tfplan -var-file="$TFVARS_FILE" > tfplan.txt
-          echo "plan_output=$(base64 tfplan.txt)" >> $GITHUB_OUTPUT
+          echo "plan_output<<EOF" >> $GITHUB_OUTPUT
+          base64 tfplan.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
           echo "TF_ENV=${TF_ENV}" >> $GITHUB_OUTPUT
 
       - name: Generate JSON Plan
@@ -83,7 +85,9 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           python ../../scripts/check_plan.py tfplan.json > check_plan_output.txt
-          echo "check_plan_output=$(base64 check_plan_output.txt)" >> $GITHUB_OUTPUT
+          echo "check_plan_output<<EOF" >> $GITHUB_OUTPUT
+          base64 check_plan_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
           if grep -q "❌ Do NOT apply" check_plan_output.txt; then
             echo "::warning title=Unsafe Terraform Plan::Review carefully before applying in ${TF_ENV} environment."
             echo "unsafe_changes=true" >> $GITHUB_OUTPUT
@@ -94,7 +98,9 @@ jobs:
       - name: Decode Check Plan Output
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          echo "decoded_check_plan_output=$(base64 -d check_plan_output.txt)" >> $GITHUB_OUTPUT
+          echo "decoded_check_plan_output<<EOF" >> $GITHUB_OUTPUT
+          base64 -d check_plan_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Post Plan to PR
         if: github.event_name == 'pull_request'
