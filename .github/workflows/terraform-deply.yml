@@ -148,7 +148,7 @@ jobs:
         if: failure()
         uses: rtCamp/action-slack-notify@v2.3.0
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_USERNAME: TerraformBot
           SLACK_TITLE: Terraform Validate & Plan Failure (${{ env.TF_ENV }})
           SLACK_MESSAGE: |
@@ -212,7 +212,7 @@ jobs:
         if: failure()
         uses: rtCamp/action-slack-notify@v2.3.0
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_USERNAME: TerraformBot
           SLACK_TITLE: Terraform Apply Failure (${{ env.TF_ENV }})
           SLACK_MESSAGE: |
