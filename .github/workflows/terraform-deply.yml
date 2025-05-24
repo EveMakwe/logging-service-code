@@ -74,8 +74,7 @@ jobs:
 
       - name: Make Emoji Plan Output
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: |
-          python scripts/emoji.py < tfplan.txt > tfplan-emoji.txt
+        run: python scripts/emoji.py < tfplan.txt > tfplan-emoji.txt
 
       - name: Show Emoji Plan in Log
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -90,17 +89,14 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           python scripts/check_plan.py tfplan.json > check_plan_output.txt
-          echo "check_plan_output<<EOF" >> $GITHUB_OUTPUT
-          base64 check_plan_output.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
           if grep -q "❌ Do NOT apply" check_plan_output.txt; then
-            echo "::warning title=Unsafe Terraform Plan::Review carefully before applying in ${TF_ENV} environment."
             echo "unsafe_changes=true" >> $GITHUB_OUTPUT
           else
             echo "unsafe_changes=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Decode Check Plan Output
+        id: decode-plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           echo "decoded_check_plan_output<<EOF" >> $GITHUB_OUTPUT
