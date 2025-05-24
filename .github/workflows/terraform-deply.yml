@@ -75,7 +75,7 @@ jobs:
       - name: Make Emoji Plan Output
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          python ../scripts/emoji.py < tfplan.txt > tfplan-emoji.txt
+          python /scripts/emoji.py < tfplan.txt > tfplan-emoji.txt
 
       - name: Show Emoji Plan in Log
         working-directory: ${{ env.TF_WORKING_DIR }}
