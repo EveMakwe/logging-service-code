@@ -4,7 +4,6 @@ import json
 import sys
 import glob
 
-
 def check_plan(plan):
     changes = plan.get('resource_changes', [])
     errors = []
@@ -36,8 +35,8 @@ def check_plan(plan):
         if action == ["create"]:
             continue
 
-        # No-op (safe)
-        if action == ["no-op"]:
+        # No-op or data read (safe)
+        if action == ["no-op"] or action == ["read"]:
             continue
 
         # Unknown/unsupported action
@@ -45,7 +44,6 @@ def check_plan(plan):
             f"Resource '{address}' has unsupported action: {action}"
         )
     return errors
-
 
 def main():
     plan_files = sys.argv[1:] if len(sys.argv) > 1 else glob.glob("*.tfplan.json")
@@ -84,7 +82,6 @@ def main():
     # Uncomment the next line to make CI fail on unsafe plans:
     # if has_error:
     #     sys.exit(2)
-
 
 if __name__ == "__main__":
     main()
