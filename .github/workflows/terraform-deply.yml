@@ -99,7 +99,7 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           echo "decoded_check_plan_output<<EOF" >> $GITHUB_OUTPUT
-          base64 -d check_plan_output.txt >> $GITHUB_OUTPUT
+          cat check_plan_output.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Post Plan to PR
