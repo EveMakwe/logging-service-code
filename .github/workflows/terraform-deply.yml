@@ -131,7 +131,7 @@ jobs:
         if: steps.check-plan.outputs.unsafe_changes == 'true'
         uses: rtCamp/action-slack-notify@v2.3.0
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_USERNAME: TerraformBot
           SLACK_TITLE: '⚠️ UNSAFE Terraform Plan Detected'
           SLACK_MESSAGE: |
