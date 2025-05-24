@@ -21,8 +21,6 @@ jobs:
   validate-and-plan:
     name: Validate & Plan
     runs-on: ubuntu-latest
-    outputs:
-      tf_env: ${{ env.TF_ENV }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4.2.2
@@ -42,7 +40,8 @@ jobs:
 
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init -input=false
+        run: |
+          terraform init -input=false || (echo "Terraform init failed. Detailed output:"; terraform init -input=false -no-color; exit 1)
 
       - name: Terraform Format
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -52,11 +51,25 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: ${{ env.TF_WORKING_DIR }}
+          additional_args: --minimum-severity MEDIUM
+
       - name: Terraform Plan
         id: plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           TFVARS_FILE="envs/${TF_ENV}.tfvars"
+          if [ ! -f "$TFVARS_FILE" ]; then
+            echo "::error::Missing tfvars file: $TFVARS_FILE"
+            echo "Checking for similar files in envs/"
+            ls -la envs/ || echo "No files found in envs/"
+            echo "Possible naming issues (e.g., prodtfvars, pro.tfvars, Prod.tfvars):"
+            find envs/ -type f -iname "*${TF_ENV}*.tfvars" -o -iname "prodtfvars" || echo "No matching files found"
+            exit 1
+          fi
           terraform plan -no-color -out=tfplan -var-file="$TFVARS_FILE" > tfplan.txt
 
       - name: Show Terraform Plan in Log
@@ -67,15 +80,90 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform show -json tfplan > tfplan.json
 
-      - name: Save Plan Artifacts
+      - name: Check Plan Safety
+        id: check-plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          python scripts/check_plan.py tfplan.json > check_plan_output.txt
+          echo "check_plan_output<<EOF" >> $GITHUB_OUTPUT
+          base64 check_plan_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          if grep -q "❌ Do NOT apply" check_plan_output.txt; then
+            echo "::warning title=Unsafe Terraform Plan::Review carefully before applying in ${TF_ENV} environment."
+            echo "unsafe_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "unsafe_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Decode Check Plan Output
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "decoded_check_plan_output<<EOF" >> $GITHUB_OUTPUT
+          cat check_plan_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post Plan to PR (if PR context)
+        uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let planOutput = 'No plan output available.';
+            if (process.env.plan_output) {
+              planOutput = Buffer.from(process.env.plan_output, 'base64').toString('utf-8');
+            }
+            const checkPlanOutput = process.env.decoded_check_plan_output || 'No safety check output available.';
+            const body = `### Terraform Plan (${process.env.TF_ENV})\n\`\`\`terraform\n${planOutput}\n\`\`\`\n### Plan Safety Check\n\`\`\`\n${checkPlanOutput}\n\`\`\`\n---\n⚠️ **DO NOT APPLY without explicit human review and written signoff in this PR!**`;
+            if (context.issue && context.issue.number) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            } else {
+              console.log('No PR context. Skipping PR comment.');
+            }
+
+      - name: Save Plan Artifact
         uses: actions/upload-artifact@v4.4.3
         with:
-          name: tfplan-artifacts
+          name: tfplan
           path: |
             ${{ env.TF_WORKING_DIR }}/tfplan
-            ${{ env.TF_WORKING_DIR }}/tfplan.txt
-            ${{ env.TF_WORKING_DIR }}/tfplan.json
             ${{ env.TF_WORKING_DIR }}/envs/${{ env.TF_ENV }}.tfvars
+          retention-days: 1
+
+      - name: Slack Warning Notification
+        if: steps.check-plan.outputs.unsafe_changes == 'true'
+        uses: rtCamp/action-slack-notify@v2.3.0
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_USERNAME: TerraformBot
+          SLACK_TITLE: '⚠️ UNSAFE Terraform Plan Detected'
+          SLACK_MESSAGE: |
+            ⚠️ *UNSAFE changes detected in Validate & Plan job for ${{ github.repository }} on branch ${{ github.ref_name }} (environment: ${{ env.TF_ENV }})!*
+            > *Review the plan output carefully. The following destructive or risky actions are detected:*
+            ${{ steps.decode-plan.outputs.decoded_check_plan_output || 'No safety check output available.' }}
+            ---
+            🚨 *DO NOT APPLY without explicit human review and signoff!*
+          SLACK_COLOR: warning
+          SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref_name }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
+          SLACK_ICON_EMOJI: ':warning:'
+
+      - name: Slack Failure Notification
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2.3.0
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_USERNAME: TerraformBot
+          SLACK_TITLE: Terraform Validate & Plan Failure (${{ env.TF_ENV }})
+          SLACK_MESSAGE: |
+            Failure in Validate & Plan for ${{ github.repository }} on ${{ github.ref_name }} (environment: ${{ env.TF_ENV }}).
+            Safety Check Output:
+            ${{ steps.decode-plan.outputs.decoded_check_plan_output || 'No output available.' }}
+          SLACK_COLOR: danger
+          SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref_name }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
+          SLACK_ICON_EMOJI: ':x:'
 
   apply:
     name: Terraform Apply
@@ -105,7 +193,7 @@ jobs:
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4.1.8
         with:
-          name: tfplan-artifacts
+          name: tfplan
           path: ${{ env.TF_WORKING_DIR }}
 
       - name: Check tfvars file exists
@@ -118,5 +206,19 @@ jobs:
           fi
 
       - name: Terraform Apply
+        id: apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -auto-approve tfplan
+
+      - name: Slack Failure Notification
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2.3.0
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_USERNAME: TerraformBot
+          SLACK_TITLE: Terraform Apply Failure (${{ env.TF_ENV }})
+          SLACK_MESSAGE: |
+            Failure in Apply for ${{ github.repository }} on ${{ github.ref_name }} (environment: ${{ env.TF_ENV }}).
+          SLACK_COLOR: danger
+          SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref_name }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
+          SLACK_ICON_EMOJI: ':x:'
