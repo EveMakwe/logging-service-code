@@ -25,6 +25,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4.2.2
 
+      - name: Debug Working Directory
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Listing files in envs/ (relative to repo root):"
+          ls -la envs/ || echo "envs/ directory not found"
+          echo "Listing files in TF_WORKING_DIR (${TF_WORKING_DIR}):"
+          ls -la ${TF_WORKING_DIR}/ || echo "${TF_WORKING_DIR} not found"
+          echo "Listing files in ../envs/ (relative to ${TF_WORKING_DIR}):"
+          ls -la ${TF_WORKING_DIR}/../envs/ || echo "../envs/ not found"
+          echo "Repository structure:"
+          find . -type f
+          echo "Checking for prod.tfvars or similar names:"
+          find . -type f -iname "*prod*.tfvars" -o -iname "prodtfvars" || echo "No prod-related tfvars files found"
+
       - name: Configure AWS Credentials
         if: ${{ !contains(github.event.head_commit.message, '[skip-aws]') }}
         uses: aws-actions/configure-aws-credentials@v4.0.2
@@ -61,11 +75,16 @@ jobs:
         id: plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          if [ ! -f "../envs/${TF_ENV}.tfvars" ]; then
-            echo "::error::Missing tfvars file: envs/${TF_ENV}.tfvars"
+          TFVARS_FILE="../envs/${TF_ENV}.tfvars"
+          if [ ! -f "$TFVARS_FILE" ]; then
+            echo "::error::Missing tfvars file: $TFVARS_FILE"
+            echo "Checking for similar files in ../envs/:"
+            ls -la ../envs/ || echo "No files found in ../envs/"
+            echo "Possible naming issues (e.g., prodtfvars, pro.tfvars, Prod.tfvars):"
+            find ../envs/ -type f -iname "*${TF_ENV}*.tfvars" -o -iname "prodtfvars" || echo "No matching files found"
             exit 1
           fi
-          terraform plan -no-color -out=tfplan -var-file="../envs/${TF_ENV}.tfvars" > tfplan.txt
+          terraform plan -no-color -out=tfplan -var-file="$TFVARS_FILE" > tfplan.txt
           echo "plan_output=$(base64 tfplan.txt)" >> $GITHUB_OUTPUT
           echo "TF_ENV=${TF_ENV}" >> $GITHUB_OUTPUT
 
@@ -87,7 +106,6 @@ jobs:
           fi
 
       - name: Decode Check Plan Output
-        id: decode-plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           echo "decoded_check_plan_output=$(base64 -d check_plan_output.txt)" >> $GITHUB_OUTPUT
@@ -187,11 +205,16 @@ jobs:
         id: apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          if [ ! -f "../envs/${TF_ENV}.tfvars" ]; then
-            echo "::error::Missing tfvars file: envs/${TF_ENV}.tfvars"
+          TFVARS_FILE="../envs/${TF_ENV}.tfvars"
+          if [ ! -f "$TFVARS_FILE" ]; then
+            echo "::error::Missing tfvars file: $TFVARS_FILE"
+            echo "Checking for similar files in ../envs/:"
+            ls -la ../envs/ || echo "No files found in ../envs/"
+            echo "Possible naming issues (e.g., prodtfvars, pro.tfvars, Prod.tfvars):"
+            find ../envs/ -type f -iname "*${TF_ENV}*.tfvars" -o -iname "prodtfvars" || echo "No matching files found"
             exit 1
           fi
-          terraform apply -auto-approve -var-file="../envs/${TF_ENV}.tfvars" tfplan
+          terraform apply -auto-approve -var-file="$TFVARS_FILE" tfplan
 
       - name: Slack Failure Notification
         if: failure()
