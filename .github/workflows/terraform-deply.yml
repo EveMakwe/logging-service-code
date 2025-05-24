@@ -61,15 +61,13 @@ jobs:
         id: plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          TFVARS_FILE="../envs/${TF_ENV}.tfvars"
-          # Debug: Print the absolute path being checked for tfvars
-          echo "DEBUG: Looking for tfvars at: $(realpath $TFVARS_FILE 2>/dev/null || echo 'Path does not exist')"
+          TFVARS_FILE="envs/${TF_ENV}.tfvars"
           if [ ! -f "$TFVARS_FILE" ]; then
             echo "::error::Missing tfvars file: $TFVARS_FILE"
-            echo "Checking for similar files in ../envs/"
-            ls -la ../envs/ || echo "No files found in ../envs/"
+            echo "Checking for similar files in envs/"
+            ls -la envs/ || echo "No files found in envs/"
             echo "Possible naming issues (e.g., prodtfvars, pro.tfvars, Prod.tfvars):"
-            find ../envs/ -type f -iname "*${TF_ENV}*.tfvars" -o -iname "prodtfvars" || echo "No matching files found"
+            find envs/ -type f -iname "*${TF_ENV}*.tfvars" -o -iname "prodtfvars" || echo "No matching files found"
             exit 1
           fi
           terraform plan -no-color -out=tfplan -var-file="$TFVARS_FILE" > tfplan.txt
@@ -120,7 +118,7 @@ jobs:
           name: tfplan
           path: |
             ${{ env.TF_WORKING_DIR }}/tfplan
-            ${{ env.TF_WORKING_DIR }}/../envs/${{ env.TF_ENV }}.tfvars
+            ${{ env.TF_WORKING_DIR }}/envs/${{ env.TF_ENV }}.tfvars
           retention-days: 1
 
       - name: Slack Warning Notification
@@ -193,15 +191,13 @@ jobs:
         id: apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          TFVARS_FILE="../envs/${TF_ENV}.tfvars"
-          # Debug: Print the absolute path being checked for tfvars
-          echo "DEBUG: Looking for tfvars at: $(realpath $TFVARS_FILE 2>/dev/null || echo 'Path does not exist')"
+          TFVARS_FILE="envs/${TF_ENV}.tfvars"
           if [ ! -f "$TFVARS_FILE" ]; then
             echo "::error::Missing tfvars file: $TFVARS_FILE"
-            echo "Checking for similar files in ../envs/:"
-            ls -la ../envs/ || echo "No files found in ../envs/"
+            echo "Checking for similar files in envs/:"
+            ls -la envs/ || echo "No files found in envs/"
             echo "Possible naming issues (e.g., prodtfvars, pro.tfvars, Prod.tfvars):"
-            find ../envs/ -type f -iname "*${TF_ENV}*.tfvars" -o -iname "prodtfvars" || echo "No matching files found"
+            find envs/ -type f -iname "*${TF_ENV}*.tfvars" -o -iname "prodtfvars" || echo "No matching files found"
             exit 1
           fi
           terraform apply -auto-approve -var-file="$TFVARS_FILE" tfplan
