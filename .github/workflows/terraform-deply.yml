@@ -42,7 +42,6 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform init -input=false || (echo "Terraform init failed. Detailed output:"; terraform init -input=false -no-color; exit 1)
-
       - name: Terraform Format
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform fmt -check -diff
@@ -71,7 +70,6 @@ jobs:
             exit 1
           fi
           terraform plan -no-color -out=tfplan -var-file="$TFVARS_FILE" > tfplan.txt
-
       - name: Make Emoji Plan Output
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: python scripts/emoji.py < tfplan.txt > tfplan-emoji.txt
@@ -102,6 +100,24 @@ jobs:
           echo "decoded_check_plan_output<<EOF" >> $GITHUB_OUTPUT
           cat check_plan_output.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+      # --- SLACK SUCCESS NOTIFICATION ---
+      - name: Slack Success Notification
+        if: steps.check-plan.outputs.unsafe_changes == 'false'
+        uses: rtCamp/action-slack-notify@v2.3.0
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_USERNAME: TerraformBot
+          SLACK_TITLE: '✅ SAFE Terraform Plan'
+          SLACK_MESSAGE: |
+            ✅ *SAFE changes detected in Validate & Plan job for ${{ github.repository }} on branch ${{ github.ref_name }} (environment: ${{ env.TF_ENV }})!*
+            ---
+            *No destructive or risky actions were found in this Terraform plan.*
+            ---
+            ${{ steps.decode-plan.outputs.decoded_check_plan_output || 'Plan details unavailable.' }}
+          SLACK_COLOR: good
+          SLACK_FOOTER: ${{ github.repository }} | ${{ github.ref_name }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow Run>
+          SLACK_ICON_EMOJI: ':white_check_mark:'
 
       - name: Post Emoji Plan to PR (if PR context)
         if: github.event_name == 'pull_request'
@@ -204,7 +220,6 @@ jobs:
             echo "::error::Missing tfvars file: $TFVARS_FILE"
             exit 1
           fi
-
       - name: Terraform Apply
         id: apply
         working-directory: ${{ env.TF_WORKING_DIR }}
