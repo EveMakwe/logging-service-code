@@ -14,56 +14,36 @@ def check_plan(plan):
         if not action:
             continue
 
-        if "delete" in action:
+        # Replacement: delete+create (will be replaced)
+        if "delete" in action and "create" in action:
+            errors.append(
+                f"Resource '{address}' will be replaced (delete and create)."
+            )
+            continue
+
+        # Destroy
+        if action == ["delete"]:
             errors.append(
                 f"Resource '{address}' is being destroyed."
             )
             continue
-        if "create" in action:
+
+        # In-place update (safe): do NOT warn
+        if action == ["update"]:
             continue
+
+        # Creation only (safe): do NOT warn
+        if action == ["create"]:
+            continue
+
+        # No-op (safe)
         if action == ["no-op"]:
             continue
 
-        if "update" in action or "modify" in action:
-            before = rc.get('change', {}).get('before', {})
-            after = rc.get('change', {}).get('after', {})
-            before_tags = before.get('tags') or {}
-            after_tags = after.get('tags') or {}
-
-            changed_keys = set(before_tags.keys()) | set(after_tags.keys())
-            changed_keys = {
-                k for k in changed_keys
-                if before_tags.get(k) != after_tags.get(k)
-            }
-            other_changed_keys = changed_keys - {"GitCommitHash"}
-
-            all_changes = set()
-            if before and after:
-                for key in set(before.keys()) | set(after.keys()):
-                    if (
-                        before.get(key) != after.get(key)
-                        and key != "tags"
-                    ):
-                        all_changes.add(key)
-
-            if all_changes:
-                msg = (
-                    f"Resource '{address}' is being modified: "
-                    "attributes changed (not tags): "
-                    f"{sorted(all_changes)}"
-                )
-                errors.append(msg)
-            elif other_changed_keys:
-                msg = (
-                    f"Resource '{address}' is being modified: tags other than "
-                    "'GitCommitHash' are changed: "
-                    f"{sorted(other_changed_keys)}"
-                )
-                errors.append(msg)
-        else:
-            errors.append(
-                f"Resource '{address}' has unsupported action: {action}"
-            )
+        # Unknown/unsupported action
+        errors.append(
+            f"Resource '{address}' has unsupported action: {action}"
+        )
     return errors
 
 
@@ -92,8 +72,7 @@ def main():
         errors = check_plan(plan)
         if not errors:
             print(
-                "✅ Safe to apply: Only creates or only allowed tag "
-                "modifications detected."
+                "✅ Safe to apply: Only creates or in-place updates detected."
             )
         else:
             print("❌ Do NOT apply:")
