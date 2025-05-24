@@ -25,20 +25,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4.2.2
 
-      - name: Debug Working Directory
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Listing files in envs/ (relative to repo root):"
-          ls -la envs/ || echo "envs/ directory not found"
-          echo "Listing files in TF_WORKING_DIR (${TF_WORKING_DIR}):"
-          ls -la ${TF_WORKING_DIR}/ || echo "${TF_WORKING_DIR} not found"
-          echo "Listing files in ../envs/ (relative to ${TF_WORKING_DIR}):"
-          ls -la ${TF_WORKING_DIR}/../envs/ || echo "../envs/ not found"
-          echo "Repository structure:"
-          find . -type f
-          echo "Checking for prod.tfvars or similar names:"
-          find . -type f -iname "*prod*.tfvars" -o -iname "prodtfvars" || echo "No prod-related tfvars files found"
-
       - name: Configure AWS Credentials
         if: ${{ !contains(github.event.head_commit.message, '[skip-aws]') }}
         uses: aws-actions/configure-aws-credentials@v4.0.2
@@ -76,9 +62,11 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           TFVARS_FILE="../envs/${TF_ENV}.tfvars"
+          # Debug: Print the absolute path being checked for tfvars
+          echo "DEBUG: Looking for tfvars at: $(realpath $TFVARS_FILE 2>/dev/null || echo 'Path does not exist')"
           if [ ! -f "$TFVARS_FILE" ]; then
             echo "::error::Missing tfvars file: $TFVARS_FILE"
-            echo "Checking for similar files in ../envs/:"
+            echo "Checking for similar files in ../envs/"
             ls -la ../envs/ || echo "No files found in ../envs/"
             echo "Possible naming issues (e.g., prodtfvars, pro.tfvars, Prod.tfvars):"
             find ../envs/ -type f -iname "*${TF_ENV}*.tfvars" -o -iname "prodtfvars" || echo "No matching files found"
@@ -206,6 +194,8 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           TFVARS_FILE="../envs/${TF_ENV}.tfvars"
+          # Debug: Print the absolute path being checked for tfvars
+          echo "DEBUG: Looking for tfvars at: $(realpath $TFVARS_FILE 2>/dev/null || echo 'Path does not exist')"
           if [ ! -f "$TFVARS_FILE" ]; then
             echo "::error::Missing tfvars file: $TFVARS_FILE"
             echo "Checking for similar files in ../envs/:"
