@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Fetch the last two commits to compare
+          fetch-depth: 2  
 
       - name: Get changed files
         id: changed-files
