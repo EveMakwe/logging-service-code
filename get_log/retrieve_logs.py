@@ -31,8 +31,8 @@ metrics = Metrics(namespace="LogQueryService")
 
 
 def get_dynamodb_resource():
-    # Optionally, pull region from env, config, or default
-    region = os.environ.get("AWS_REGION", "us-west-2")
+
+    region = os.environ.get("AWS_REGION", "us-east-1")
     return boto3.resource("dynamodb", region_name=region)
 
 
